@@ -24,6 +24,8 @@ video-summarizer-go/
 - **ProcessingEngine**: Orchestrates the pipeline, manages state, emits/handles events.
 - **WorkerPool**: Executes tasks in parallel, with concurrency limits per step.
 - **EventBus**: Decouples pipeline steps using pub/sub events.
+- **StateStore**: Manages the global state of requests and their status.
+- **OutputProvider**: Handles the final output of processed content (e.g., Google Drive, file system).
 
 ### Pipeline Flow
 1. New request arrives (API or background source)
@@ -37,12 +39,24 @@ video-summarizer-go/
 > **Note:** Mermaid diagrams do not render on GitHub. Use [mermaid.live](https://mermaid.live/) to view.
 ```mermaid
 flowchart TD
-    API[API/Source] -->|Submit| Engine
-    Engine -- EventBus --> EventBus
-    EventBus -- Event --> Engine
+    subgraph Inputs
+        API[API (HTTP/CLI)]
+        BG[Background Sources<br/>(YouTube Search, RSS, etc.)]
+    end
+
+    API -- Submit Request --> Engine
+    BG -- Auto-Submit --> Engine
+
     Engine -- Enqueue Task --> WorkerPool
     WorkerPool -- Dequeue Task --> Engine
+
     Engine -- Publish Event --> EventBus
+    EventBus -- Event --> Engine
+
+    Engine -- Update State --> StateStore[(State Store)]
+    StateStore -- Status Query --> API
+
+    Engine -- Output/Upload --> OutputProvider[(Output Provider)]
 ```
 
 ## Quickstart
