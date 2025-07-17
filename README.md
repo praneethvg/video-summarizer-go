@@ -39,24 +39,22 @@ video-summarizer-go/
 > **Note:** Mermaid diagrams do not render on GitHub. Use [mermaid.live](https://mermaid.live/) to view.
 ```mermaid
 flowchart TD
-    subgraph Inputs
-        API[API (HTTP/CLI)]
-        BG[Background Sources<br/>(YouTube Search, RSS, etc.)]
-    end
+    API[API (HTTP/CLI)]
+    BG[Background Sources (YouTube Search, RSS, etc.)]
 
-    API -- Submit Request --> Engine
-    BG -- Auto-Submit --> Engine
+    API -- "Submit Request" --> Engine
+    BG -- "Auto-Submit" --> Engine
 
-    Engine -- Enqueue Task --> WorkerPool
-    WorkerPool -- Dequeue Task --> Engine
+    Engine -- "Enqueue Task" --> WorkerPool
+    WorkerPool -- "Dequeue Task" --> Engine
 
-    Engine -- Publish Event --> EventBus
-    EventBus -- Event --> Engine
+    Engine -- "Publish Event" --> EventBus
+    EventBus -- "Event" --> Engine
 
-    Engine -- Update State --> StateStore[(State Store)]
-    StateStore -- Status Query --> API
+    Engine -- "Update State" --> StateStore
+    StateStore -- "Status Query" --> API
 
-    Engine -- Output/Upload --> OutputProvider[(Output Provider)]
+    Engine -- "Output/Upload" --> OutputProvider
 ```
 
 ## Quickstart
