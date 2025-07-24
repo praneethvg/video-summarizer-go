@@ -10,21 +10,21 @@ import (
 	"video-summarizer-go/internal/interfaces"
 )
 
-// TranscriptionProcessor handles audio transcription
-type TranscriptionProcessor struct{}
+// TranscriptionTask handles audio transcription
+type TranscriptionTask struct{}
 
-// NewTranscriptionProcessor creates a new TranscriptionProcessor
-func NewTranscriptionProcessor() *TranscriptionProcessor {
-	return &TranscriptionProcessor{}
+// NewTranscriptionTask creates a new TranscriptionTask
+func NewTranscriptionTask() *TranscriptionTask {
+	return &TranscriptionTask{}
 }
 
 // GetTaskType returns the task type this processor handles
-func (p *TranscriptionProcessor) GetTaskType() interfaces.TaskType {
+func (p *TranscriptionTask) GetTaskType() interfaces.TaskType {
 	return interfaces.TaskTranscription
 }
 
 // Process handles the transcription task
-func (p *TranscriptionProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
+func (p *TranscriptionTask) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
 	log.Infof("Processing TaskTranscription for request: %s", task.RequestID)
 
 	audioPath := task.Data.(map[string]interface{})["audio_path"].(string)

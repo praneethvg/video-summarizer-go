@@ -10,21 +10,21 @@ import (
 	"video-summarizer-go/internal/interfaces"
 )
 
-// VideoInfoProcessor handles video information extraction and audio download
-type VideoInfoProcessor struct{}
+// VideoInfoTask handles video information extraction and audio download
+type VideoInfoTask struct{}
 
-// NewVideoInfoProcessor creates a new VideoInfoProcessor
-func NewVideoInfoProcessor() *VideoInfoProcessor {
-	return &VideoInfoProcessor{}
+// NewVideoInfoTask creates a new VideoInfoTask
+func NewVideoInfoTask() *VideoInfoTask {
+	return &VideoInfoTask{}
 }
 
 // GetTaskType returns the task type this processor handles
-func (p *VideoInfoProcessor) GetTaskType() interfaces.TaskType {
+func (p *VideoInfoTask) GetTaskType() interfaces.TaskType {
 	return interfaces.TaskVideoInfo
 }
 
 // Process handles the video info task
-func (p *VideoInfoProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
+func (p *VideoInfoTask) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
 	log.Infof("Processing TaskVideoInfo for request: %s", task.RequestID)
 
 	url := task.Data.(map[string]interface{})["url"].(string)

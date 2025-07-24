@@ -10,18 +10,18 @@ import (
 	"video-summarizer-go/internal/interfaces"
 )
 
-// AudioDownloadProcessor handles audio download for a video
-type AudioDownloadProcessor struct{}
+// AudioDownloadTask handles audio download for a video
+type AudioDownloadTask struct{}
 
-func NewAudioDownloadProcessor() *AudioDownloadProcessor {
-	return &AudioDownloadProcessor{}
+func NewAudioDownloadTask() *AudioDownloadTask {
+	return &AudioDownloadTask{}
 }
 
-func (p *AudioDownloadProcessor) GetTaskType() interfaces.TaskType {
+func (p *AudioDownloadTask) GetTaskType() interfaces.TaskType {
 	return interfaces.TaskAudioDownload
 }
 
-func (p *AudioDownloadProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
+func (p *AudioDownloadTask) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
 	log.Infof("Processing TaskAudioDownload for request: %s", task.RequestID)
 
 	url, ok := task.Data.(map[string]interface{})["url"].(string)

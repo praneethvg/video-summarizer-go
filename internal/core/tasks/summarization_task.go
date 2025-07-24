@@ -11,21 +11,21 @@ import (
 	"video-summarizer-go/internal/interfaces"
 )
 
-// SummarizationProcessor handles text summarization
-type SummarizationProcessor struct{}
+// SummarizationTask handles text summarization
+type SummarizationTask struct{}
 
-// NewSummarizationProcessor creates a new SummarizationProcessor
-func NewSummarizationProcessor() *SummarizationProcessor {
-	return &SummarizationProcessor{}
+// NewSummarizationTask creates a new SummarizationTask
+func NewSummarizationTask() *SummarizationTask {
+	return &SummarizationTask{}
 }
 
 // GetTaskType returns the task type this processor handles
-func (p *SummarizationProcessor) GetTaskType() interfaces.TaskType {
+func (p *SummarizationTask) GetTaskType() interfaces.TaskType {
 	return interfaces.TaskSummarization
 }
 
 // Process handles the summarization task
-func (p *SummarizationProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
+func (p *SummarizationTask) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
 	log.Infof("Processing TaskSummarization for request: %s", task.RequestID)
 
 	transcriptPath := task.Data.(map[string]interface{})["transcript_path"].(string)

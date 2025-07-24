@@ -83,7 +83,7 @@ func (e *ProcessingEngine) StartRequest(requestID, url string, prompt interfaces
 		// Add category as a top-level field if you want, or handle it elsewhere
 	}
 	e.store.SaveRequestState(requestID, state)
-	log.Debugf("[Engine] Publishing VideoProcessingRequested event for requestID: %s", requestID)
+	log.Debugf("Publishing VideoProcessingRequested event for requestID: %s", requestID)
 	e.eventBus.Publish(interfaces.Event{
 		ID:        fmt.Sprintf("evt-%s-%d", requestID, time.Now().UnixNano()),
 		RequestID: requestID,

@@ -11,21 +11,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// CleanupProcessor handles cleanup operations
-type CleanupProcessor struct{}
+// CleanupTask handles cleanup operations
+type CleanupTask struct{}
 
-// NewCleanupProcessor creates a new CleanupProcessor
-func NewCleanupProcessor() *CleanupProcessor {
-	return &CleanupProcessor{}
+// NewCleanupTask creates a new CleanupTask
+func NewCleanupTask() *CleanupTask {
+	return &CleanupTask{}
 }
 
 // GetTaskType returns the task type this processor handles
-func (p *CleanupProcessor) GetTaskType() interfaces.TaskType {
+func (p *CleanupTask) GetTaskType() interfaces.TaskType {
 	return interfaces.TaskCleanup
 }
 
 // Process handles the cleanup task
-func (p *CleanupProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
+func (p *CleanupTask) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
 	log.Infof("Processing TaskCleanup for request: %s", task.RequestID)
 
 	// Get request state for cleanup

@@ -4,25 +4,23 @@ import (
 	"video-summarizer-go/internal/interfaces"
 )
 
-// TaskProcessorRegistry manages task processors
+// TaskProcessorRegistry manages task tasks
 type TaskProcessorRegistry struct {
 	processors map[interfaces.TaskType]interfaces.TaskProcessor
 }
 
-// NewTaskProcessorRegistry creates a new task processor registry
+// NewTaskProcessorRegistry creates a new task task registry
 func NewTaskProcessorRegistry() *TaskProcessorRegistry {
 	registry := &TaskProcessorRegistry{
 		processors: make(map[interfaces.TaskType]interfaces.TaskProcessor),
 	}
-
-	// Register all processors
-	registry.Register(NewVideoInfoProcessor())
-	registry.Register(NewTranscriptionProcessor())
-	registry.Register(NewSummarizationProcessor())
-	registry.Register(NewOutputProcessor())
-	registry.Register(NewCleanupProcessor())
-	registry.Register(NewAudioDownloadProcessor())
-
+	// Register all task tasks
+	registry.Register(NewVideoInfoTask())
+	registry.Register(NewTranscriptionTask())
+	registry.Register(NewSummarizationTask())
+	registry.Register(NewOutputTask())
+	registry.Register(NewCleanupTask())
+	registry.Register(NewAudioDownloadTask())
 	return registry
 }
 

@@ -11,21 +11,21 @@ import (
 	"video-summarizer-go/internal/interfaces"
 )
 
-// OutputProcessor handles output operations (uploads, etc.)
-type OutputProcessor struct{}
+// OutputTask handles output operations (uploads, etc.)
+type OutputTask struct{}
 
-// NewOutputProcessor creates a new OutputProcessor
-func NewOutputProcessor() *OutputProcessor {
-	return &OutputProcessor{}
+// NewOutputTask creates a new OutputTask
+func NewOutputTask() *OutputTask {
+	return &OutputTask{}
 }
 
 // GetTaskType returns the task type this processor handles
-func (p *OutputProcessor) GetTaskType() interfaces.TaskType {
+func (p *OutputTask) GetTaskType() interfaces.TaskType {
 	return interfaces.TaskOutput
 }
 
 // Process handles the output task
-func (p *OutputProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
+func (p *OutputTask) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
 	log.Infof("Processing TaskOutput for request: %s", task.RequestID)
 
 	// Get request state for upload
