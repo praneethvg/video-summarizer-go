@@ -22,7 +22,7 @@ func (p *AudioDownloadProcessor) GetTaskType() interfaces.TaskType {
 }
 
 func (p *AudioDownloadProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
-	log.Printf("[AudioDownloadProcessor] Processing TaskAudioDownload for request: %s", task.RequestID)
+	log.Infof("Processing TaskAudioDownload for request: %s", task.RequestID)
 
 	url, ok := task.Data.(map[string]interface{})["url"].(string)
 	if !ok || url == "" {
@@ -43,7 +43,7 @@ func (p *AudioDownloadProcessor) Process(ctx context.Context, task *interfaces.T
 		"audio_path": audioPath,
 	})
 	if err != nil {
-		log.Printf("[AudioDownloadProcessor][ERROR] Failed to update state with audio path: %v", err)
+		log.Errorf("Failed to update state with audio path: %v", err)
 		return err
 	}
 

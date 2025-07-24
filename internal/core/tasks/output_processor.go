@@ -26,12 +26,12 @@ func (p *OutputProcessor) GetTaskType() interfaces.TaskType {
 
 // Process handles the output task
 func (p *OutputProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
-	log.Printf("[OutputProcessor] Processing TaskOutput for request: %s", task.RequestID)
+	log.Infof("Processing TaskOutput for request: %s", task.RequestID)
 
 	// Get request state for upload
 	state, err := engine.GetStore().GetRequestState(task.RequestID)
 	if err != nil {
-		log.Printf("[OutputProcessor][ERROR] Failed to get request state for output: %v", err)
+		log.Errorf("Failed to get request state for output: %v", err)
 		return err
 	}
 
@@ -49,25 +49,25 @@ func (p *OutputProcessor) Process(ctx context.Context, task *interfaces.Task, en
 	if engine.GetOutputProvider() != nil {
 		videoInfo := state.VideoInfo
 		if state.Summary != "" && videoInfo != nil {
-			log.Printf("[OutputProcessor][DEBUG] Uploading summary for request: %s to user: %s, category: %s", task.RequestID, user, category)
+			log.Debugf("Uploading summary for request: %s to user: %s, category: %s", task.RequestID, user, category)
 			err := engine.GetOutputProvider().UploadSummary(task.RequestID, videoInfo, state.Summary, category, user)
 			if err != nil {
 				uploadError := fmt.Sprintf("GDrive upload summary error: %v", err)
-				log.Printf("[OutputProcessor][ERROR] %s", uploadError)
+				log.Errorf("%s", uploadError)
 				uploadErrors = append(uploadErrors, uploadError)
 			} else {
-				log.Printf("[OutputProcessor][DEBUG] Summary uploaded successfully for request: %s", task.RequestID)
+				log.Debugf("Summary uploaded successfully for request: %s", task.RequestID)
 			}
 		}
 		if state.Transcript != "" && videoInfo != nil {
-			log.Printf("[OutputProcessor][DEBUG] Uploading transcript for request: %s to user: %s, category: %s", task.RequestID, user, category)
+			log.Debugf("Uploading transcript for request: %s to user: %s, category: %s", task.RequestID, user, category)
 			err := engine.GetOutputProvider().UploadTranscript(task.RequestID, videoInfo, state.Transcript, category, user)
 			if err != nil {
 				uploadError := fmt.Sprintf("GDrive upload transcript error: %v", err)
-				log.Printf("[OutputProcessor][ERROR] %s", uploadError)
+				log.Errorf("%s", uploadError)
 				uploadErrors = append(uploadErrors, uploadError)
 			} else {
-				log.Printf("[OutputProcessor][DEBUG] Transcript uploaded successfully for request: %s", task.RequestID)
+				log.Debugf("Transcript uploaded successfully for request: %s", task.RequestID)
 			}
 		}
 	}
@@ -92,10 +92,10 @@ func (p *OutputProcessor) Process(ctx context.Context, task *interfaces.Task, en
 
 	err = engine.GetStore().UpdateRequestState(task.RequestID, updateData)
 	if err != nil {
-		log.Printf("[OutputProcessor][ERROR] Failed to update state after output: %v", err)
+		log.Errorf("Failed to update state after output: %v", err)
 	}
 
-	log.Printf("[OutputProcessor][DEBUG] TaskOutput completed for request: %s with status: %s", task.RequestID, finalStatus)
+	log.Debugf("TaskOutput completed for request: %s with status: %s", task.RequestID, finalStatus)
 
 	// Publish output completion event (cleanup will be triggered by this)
 	summaryPath := task.Data.(map[string]interface{})["summary_path"].(string)

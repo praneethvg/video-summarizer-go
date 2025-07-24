@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"video-summarizer-go/internal/providers/video"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -19,25 +21,25 @@ func main() {
 
 	provider := video.NewYtDlpVideoProvider("tools/yt-dlp", os.TempDir())
 
-	fmt.Printf("Getting video info for: %s\n", *url)
+	log.Infof("Getting video info for: %s", *url)
 	info, err := provider.GetVideoInfo(*url)
 	if err != nil {
-		fmt.Printf("Error getting video info: %v\n", err)
+		log.Errorf("Error getting video info: %v", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("\nVideo Info:\n")
-	fmt.Printf("Title: %s\n", info["title"])
-	fmt.Printf("Duration: %.2f seconds\n", info["duration"])
-	fmt.Printf("Uploader: %s\n", info["uploader"])
-	fmt.Printf("View Count: %.0f\n", info["view_count"])
+	log.Debugf("Video Info:")
+	log.Infof("Title: %s", info["title"])
+	log.Infof("Duration: %.2f seconds", info["duration"])
+	log.Infof("Uploader: %s", info["uploader"])
+	log.Infof("View Count: %.0f", info["view_count"])
 
-	fmt.Printf("\nDownloading audio...\n")
+	log.Debugf("Downloading audio...")
 	audioPath, err := provider.DownloadAudio(*url)
 	if err != nil {
-		fmt.Printf("Error downloading audio: %v\n", err)
+		log.Errorf("Error downloading audio: %v", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Audio downloaded to: %s\n", audioPath)
+	log.Infof("Audio downloaded to: %s", audioPath)
 }

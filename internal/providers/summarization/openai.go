@@ -3,13 +3,14 @@ package summarization
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"video-summarizer-go/internal/config"
 
 	"io/ioutil"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -36,7 +37,7 @@ func NewOpenAISummarizationProviderFromConfig(cfg *config.AppConfig) (*OpenAISum
 	}
 	client := openai.NewClient(cfg.OpenAIKey)
 
-	log.Printf("[OpenAI] Initializing provider with model: %s (from config: %s)", model, cfg.OpenAIModel)
+	log.Infof("Initializing provider with model: %s (from config: %s)", model, cfg.OpenAIModel)
 
 	return &OpenAISummarizationProvider{
 		client:    client,
@@ -57,8 +58,6 @@ func (p *OpenAISummarizationProvider) SummarizeText(ctx context.Context, text, p
 		return "", fmt.Errorf("failed to resolve prompt: %w", err)
 	}
 
-	log.Printf("[OpenAI] Using prompt ID: %s, model: %s", prompt, p.model)
-
 	messages := []openai.ChatCompletionMessage{
 		{
 			Role:    openai.ChatMessageRoleSystem,
@@ -76,14 +75,14 @@ func (p *OpenAISummarizationProvider) SummarizeText(ctx context.Context, text, p
 		Temperature: 0.4,
 	}
 
-	log.Printf("[OpenAI] Sending request with model: %s", req.Model)
+	log.Debugf("Sending request with model: %s", req.Model)
 
 	resp, err := p.client.CreateChatCompletion(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("OpenAI API error: %w", err)
 	}
 
-	log.Printf("[OpenAI] Response received with model: %s", resp.Model)
+	log.Debugf("Response received with model: %s", resp.Model)
 
 	summary := strings.TrimSpace(resp.Choices[0].Message.Content)
 

@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
 
 	"video-summarizer-go/internal/config"
 	"video-summarizer-go/internal/providers/summarization"
+
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -22,13 +23,13 @@ func main() {
 
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
-		fmt.Println("Failed to load config:", err)
+		logrus.Errorf("Failed to load config: %v", err)
 		os.Exit(1)
 	}
 
 	provider, err := summarization.NewConfigurableSummarizationProviderFromConfig(cfg)
 	if err != nil {
-		fmt.Println("Failed to initialize summarization provider:", err)
+		logrus.Errorf("Failed to initialize summarization provider: %v", err)
 		os.Exit(1)
 	}
 
@@ -39,7 +40,7 @@ func main() {
 		promptsDir = "prompts"
 	}
 	if err := promptManager.LoadPrompts(promptsDir); err != nil {
-		fmt.Printf("Failed to load prompts: %v\n", err)
+		logrus.Errorf("Failed to load prompts: %v", err)
 		os.Exit(1)
 	}
 
@@ -51,9 +52,9 @@ func main() {
 	}
 
 	if *listPrompts {
-		fmt.Println("Available prompts:")
+		logrus.Infof("Available prompts:")
 		for _, prompt := range provider.GetAvailablePrompts() {
-			fmt.Printf("  - %s\n", prompt)
+			logrus.Infof("  - %s", prompt)
 		}
 		return
 	}
@@ -62,23 +63,23 @@ func main() {
 	if *textFile != "" {
 		data, err := ioutil.ReadFile(*textFile)
 		if err != nil {
-			fmt.Println("Failed to read file:", err)
+			logrus.Errorf("Failed to read file: %v", err)
 			os.Exit(1)
 		}
 		inputText = string(data)
 	} else if *text != "" {
 		inputText = *text
 	} else {
-		fmt.Println("Please provide --file or --text.")
+		logrus.Errorf("Please provide --file or --text.")
 		os.Exit(1)
 	}
 
-	fmt.Printf("\nGenerating summary with prompt: '%s'\n", *prompt)
-	fmt.Println(strings.Repeat("=", 50))
+	logrus.Debugf("Generating summary with prompt: '%s'", *prompt)
+	logrus.Println(strings.Repeat("=", 50))
 	summary, err := provider.SummarizeText(context.Background(), inputText, *prompt, 10000)
 	if err != nil {
-		fmt.Println("Summarization error:", err)
+		logrus.Errorf("Summarization error: %v", err)
 		os.Exit(1)
 	}
-	fmt.Println("\nSummary:\n", summary)
+	logrus.Println("\nSummary:\n", summary)
 }

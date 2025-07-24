@@ -20,11 +20,11 @@ func NewInMemoryEventBus() *InMemoryEventBus {
 }
 
 func (b *InMemoryEventBus) Publish(event interfaces.Event) error {
-	log.Debugf("[EventBus] Publishing event: type=%s, requestID=%s", event.Type, event.RequestID)
+	log.Debugf("Publishing event: type=%s, requestID=%s", event.Type, event.RequestID)
 	b.mu.RLock()
 	handlers := b.handlers[event.Type]
 	b.mu.RUnlock()
-	log.Debugf("[EventBus] Found %d handler(s) for event type: %s", len(handlers), event.Type)
+	log.Debugf("Found %d handler(s) for event type: %s", len(handlers), event.Type)
 	for _, handler := range handlers {
 		handler(event)
 	}

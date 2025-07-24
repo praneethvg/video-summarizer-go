@@ -2,8 +2,9 @@ package core
 
 import (
 	"errors"
-	"log"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 
 	"video-summarizer-go/internal/interfaces"
 )
@@ -23,13 +24,13 @@ func (q *InMemoryTaskQueue) Enqueue(task *interfaces.Task) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.queues[task.Type] = append(q.queues[task.Type], task)
-	log.Printf("[TaskQueue] Enqueued task: %s for request: %s", task.Type, task.RequestID)
+	log.Infof("Enqueued task: %s for request: %s", task.Type, task.RequestID)
 	// Debug: print current queue for this type
 	queueIDs := make([]string, len(q.queues[task.Type]))
 	for i, t := range q.queues[task.Type] {
 		queueIDs[i] = t.ID
 	}
-	log.Printf("[TaskQueue][DEBUG] Current queue for %s: %v", task.Type, queueIDs)
+	log.Debugf("Current queue for %s: %v", task.Type, queueIDs)
 	return nil
 }
 

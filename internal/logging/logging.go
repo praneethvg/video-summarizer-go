@@ -1,8 +1,10 @@
 package logging
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -26,6 +28,32 @@ func LoadConfig(path string) (*Config, error) {
 	return &cfg, nil
 }
 
+// Custom formatter to put log message first, then file:line and method
+// e.g. INFO[time] My log message | core/engine.go:302 (*ProcessingEngine).WorkerProcess
+
+type MessageFirstFormatter struct {
+	log.TextFormatter
+}
+
+func (f *MessageFirstFormatter) Format(entry *log.Entry) ([]byte, error) {
+	// Use the standard formatter to get the prefix (level, time, etc.)
+	prefix := fmt.Sprintf("%s[%s] ", strings.ToUpper(entry.Level.String()), entry.Time.Format(f.TimestampFormat))
+	msg := entry.Message
+	var caller string
+	if entry.HasCaller() {
+		relFile := entry.Caller.File
+		if idx := strings.Index(relFile, "video-summarizer-go/"); idx != -1 {
+			relFile = relFile[idx+len("video-summarizer-go/"):]
+		}
+		funcName := entry.Caller.Function
+		if slash := strings.LastIndex(funcName, "/"); slash != -1 {
+			funcName = funcName[slash+1:]
+		}
+		caller = fmt.Sprintf(" | %s:%d %s", relFile, entry.Caller.Line, funcName)
+	}
+	return []byte(fmt.Sprintf("%s%s%s\n", prefix, msg, caller)), nil
+}
+
 func SetupLogging(path string) error {
 	cfg, err := LoadConfig(path)
 	if err != nil {
@@ -43,8 +71,17 @@ func SetupLogging(path string) error {
 	case "json":
 		log.SetFormatter(&log.JSONFormatter{})
 	default:
-		log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
+		log.SetFormatter(&MessageFirstFormatter{
+			TextFormatter: log.TextFormatter{
+				FullTimestamp:   true,
+				TimestampFormat: "2006-01-02T15:04:05-07:00",
+				DisableQuote:    true,
+			},
+		})
 	}
+
+	// Enable caller reporting
+	log.SetReportCaller(true)
 
 	// Set log output
 	if cfg.File != "" {

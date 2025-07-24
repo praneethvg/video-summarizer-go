@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
@@ -33,7 +33,7 @@ func main() {
 	}
 	tok := getTokenWithFallback(config)
 	saveToken(*tokenFile, tok)
-	fmt.Printf("Token saved to %s\n", *tokenFile)
+	log.Infof("Token saved to %s", *tokenFile)
 }
 
 // getTokenWithFallback tries to get the code via HTTP, then falls back to manual entry
@@ -55,20 +55,20 @@ func getTokenWithFallback(config *oauth2.Config) *oauth2.Token {
 	go server.ListenAndServe()
 
 	url := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline, oauth2.ApprovalForce)
-	fmt.Println("\n==== Google Drive OAuth2 Setup ====")
-	fmt.Println("1. Open the following URL in your browser:")
-	fmt.Println(url)
-	fmt.Println("2. Authorize the app. If redirected to localhost, you can close the browser tab.")
-	fmt.Println("3. If nothing happens in the terminal after 60 seconds, copy the 'code' parameter from the URL you were redirected to and paste it below.")
+	log.Infof("==== Google Drive OAuth2 Setup ====")
+	log.Infof("1. Open the following URL in your browser:")
+	log.Infof(url)
+	log.Infof("2. Authorize the app. If redirected to localhost, you can close the browser tab.")
+	log.Infof("3. If nothing happens in the terminal after 60 seconds, copy the 'code' parameter from the URL you were redirected to and paste it below.")
 	openBrowser(url)
 
 	var code string
 	select {
 	case code = <-codeCh:
-		fmt.Println("\nReceived code via local server.")
+		log.Infof("\nReceived code via local server.")
 	case <-time.After(60 * time.Second):
-		fmt.Println("\nTimeout waiting for browser redirect.")
-		fmt.Print("Paste the 'code' parameter from the redirected URL here: ")
+		log.Infof("\nTimeout waiting for browser redirect.")
+		log.Infof("Paste the 'code' parameter from the redirected URL here: ")
 		fmt.Scanln(&code)
 	}
 

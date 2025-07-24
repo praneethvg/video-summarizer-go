@@ -26,7 +26,7 @@ func (p *SummarizationProcessor) GetTaskType() interfaces.TaskType {
 
 // Process handles the summarization task
 func (p *SummarizationProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
-	log.Printf("[SummarizationProcessor] Processing TaskSummarization for request: %s", task.RequestID)
+	log.Infof("Processing TaskSummarization for request: %s", task.RequestID)
 
 	transcriptPath := task.Data.(map[string]interface{})["transcript_path"].(string)
 	transcriptBytes, err := os.ReadFile(transcriptPath)
@@ -41,7 +41,7 @@ func (p *SummarizationProcessor) Process(ctx context.Context, task *interfaces.T
 	// Read promptID and maxTokens from state
 	state, err := engine.GetStore().GetRequestState(task.RequestID)
 	if err != nil {
-		log.Printf("[SummarizationProcessor][ERROR] Failed to get state: %v", err)
+		log.Errorf("Failed to get state: %v", err)
 		return err
 	}
 	prompt := state.Prompt
@@ -85,7 +85,7 @@ func (p *SummarizationProcessor) Process(ctx context.Context, task *interfaces.T
 		"summary": summaryPath,
 	})
 	if err != nil {
-		log.Printf("[SummarizationProcessor][ERROR] Failed to update state with summary: %v", err)
+		log.Errorf("Failed to update state with summary: %v", err)
 		return err
 	}
 

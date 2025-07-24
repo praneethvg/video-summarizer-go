@@ -3,8 +3,9 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"video-summarizer-go/internal/interfaces"
 )
@@ -24,7 +25,7 @@ func (p *TranscriptionProcessor) GetTaskType() interfaces.TaskType {
 
 // Process handles the transcription task
 func (p *TranscriptionProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
-	log.Printf("[TranscriptionProcessor] Processing TaskTranscription for request: %s", task.RequestID)
+	log.Infof("Processing TaskTranscription for request: %s", task.RequestID)
 
 	audioPath := task.Data.(map[string]interface{})["audio_path"].(string)
 	transcriptPath, err := engine.GetTranscriptionProvider().TranscribeAudio(audioPath)
@@ -41,7 +42,7 @@ func (p *TranscriptionProcessor) Process(ctx context.Context, task *interfaces.T
 		"transcript": transcriptPath,
 	})
 	if err != nil {
-		log.Printf("[TranscriptionProcessor][ERROR] Failed to update state with transcript: %v", err)
+		log.Errorf("Failed to update state with transcript: %v", err)
 		return err
 	}
 

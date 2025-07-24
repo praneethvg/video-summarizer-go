@@ -25,7 +25,7 @@ func (p *VideoInfoProcessor) GetTaskType() interfaces.TaskType {
 
 // Process handles the video info task
 func (p *VideoInfoProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
-	log.Printf("[VideoInfoProcessor] Processing TaskVideoInfo for request: %s", task.RequestID)
+	log.Infof("Processing TaskVideoInfo for request: %s", task.RequestID)
 
 	url := task.Data.(map[string]interface{})["url"].(string)
 	videoInfo, err := engine.GetVideoProvider().GetVideoInfo(url)
@@ -42,7 +42,7 @@ func (p *VideoInfoProcessor) Process(ctx context.Context, task *interfaces.Task,
 		"video_info": videoInfo,
 	})
 	if err != nil {
-		log.Printf("[VideoInfoProcessor][ERROR] Failed to update state with video info: %v", err)
+		log.Errorf("Failed to update state with video info: %v", err)
 		return err
 	}
 

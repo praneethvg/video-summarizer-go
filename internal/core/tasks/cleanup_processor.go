@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"video-summarizer-go/internal/interfaces"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // CleanupProcessor handles cleanup operations
@@ -24,27 +26,27 @@ func (p *CleanupProcessor) GetTaskType() interfaces.TaskType {
 
 // Process handles the cleanup task
 func (p *CleanupProcessor) Process(ctx context.Context, task *interfaces.Task, engine interfaces.Engine) error {
-	fmt.Printf("[CleanupProcessor] Processing TaskCleanup for request: %s\n", task.RequestID)
+	log.Infof("Processing TaskCleanup for request: %s", task.RequestID)
 
 	// Get request state for cleanup
 	state, err := engine.GetStore().GetRequestState(task.RequestID)
 	if err != nil {
-		fmt.Printf("[CleanupProcessor][ERROR] Failed to get request state for cleanup: %v\n", err)
+		log.Errorf("Failed to get request state for cleanup: %v", err)
 		return err
 	}
 
 	// Clean up temporary files
-	fmt.Printf("[CleanupProcessor][DEBUG] Starting cleanup for request: %s\n", task.RequestID)
+	log.Debugf("Starting cleanup for request: %s", task.RequestID)
 	cleanupErrors := []string{}
 
 	// Clean up audio file
 	if state.AudioPath != "" {
 		if err := os.Remove(state.AudioPath); err != nil {
 			cleanupError := fmt.Sprintf("Failed to remove audio file %s: %v", state.AudioPath, err)
-			fmt.Printf("[CleanupProcessor][WARNING] %s\n", cleanupError)
+			log.Warnf("%s", cleanupError)
 			cleanupErrors = append(cleanupErrors, cleanupError)
 		} else {
-			fmt.Printf("[CleanupProcessor][DEBUG] Removed audio file: %s\n", state.AudioPath)
+			log.Debugf("Removed audio file: %s", state.AudioPath)
 		}
 	}
 
@@ -52,10 +54,10 @@ func (p *CleanupProcessor) Process(ctx context.Context, task *interfaces.Task, e
 	if state.Transcript != "" {
 		if err := os.Remove(state.Transcript); err != nil {
 			cleanupError := fmt.Sprintf("Failed to remove transcript file %s: %v", state.Transcript, err)
-			fmt.Printf("[CleanupProcessor][WARNING] %s\n", cleanupError)
+			log.Warnf("%s", cleanupError)
 			cleanupErrors = append(cleanupErrors, cleanupError)
 		} else {
-			fmt.Printf("[CleanupProcessor][DEBUG] Removed transcript file: %s\n", state.Transcript)
+			log.Debugf("Removed transcript file: %s", state.Transcript)
 		}
 	}
 
@@ -63,10 +65,10 @@ func (p *CleanupProcessor) Process(ctx context.Context, task *interfaces.Task, e
 	if state.Summary != "" {
 		if err := os.Remove(state.Summary); err != nil {
 			cleanupError := fmt.Sprintf("Failed to remove summary file %s: %v", state.Summary, err)
-			fmt.Printf("[CleanupProcessor][WARNING] %s\n", cleanupError)
+			log.Warnf("%s", cleanupError)
 			cleanupErrors = append(cleanupErrors, cleanupError)
 		} else {
-			fmt.Printf("[CleanupProcessor][DEBUG] Removed summary file: %s\n", state.Summary)
+			log.Debugf("Removed summary file: %s", state.Summary)
 		}
 	}
 
@@ -77,12 +79,12 @@ func (p *CleanupProcessor) Process(ctx context.Context, task *interfaces.Task, e
 
 	if len(cleanupErrors) > 0 {
 		// Cleanup errors are warnings, don't fail the request but log them
-		fmt.Printf("[CleanupProcessor][WARNING] Cleanup completed with warnings for request: %s\n", task.RequestID)
+		log.Warnf("Cleanup completed with warnings for request: %s", task.RequestID)
 	}
 
 	engine.GetStore().UpdateRequestState(task.RequestID, updateData)
 
-	fmt.Printf("[CleanupProcessor][DEBUG] TaskCleanup completed for request: %s\n", task.RequestID)
+	log.Debugf("TaskCleanup completed for request: %s", task.RequestID)
 
 	// Publish final completion event
 	engine.GetEventBus().Publish(interfaces.Event{

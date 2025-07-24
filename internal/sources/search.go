@@ -3,11 +3,12 @@ package sources
 import (
 	"context"
 	"fmt"
-	"log"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"video-summarizer-go/internal/interfaces"
 	"video-summarizer-go/internal/services"
@@ -73,7 +74,7 @@ func (s *SearchQuerySource) Start(ctx context.Context) error {
 
 	go s.run(ctx)
 
-	log.Printf("[SearchSource] Started search source: %s", s.name)
+	log.Infof("Started search source: %s", s.name)
 	return nil
 }
 
@@ -89,7 +90,7 @@ func (s *SearchQuerySource) Stop() error {
 	close(s.stopCh)
 	s.running = false
 
-	log.Printf("[SearchSource] Stopped search source: %s", s.name)
+	log.Infof("Stopped search source: %s", s.name)
 	return nil
 }
 
@@ -127,17 +128,17 @@ func (s *SearchQuerySource) run(ctx context.Context) {
 
 // processQueries processes all configured search queries
 func (s *SearchQuerySource) processQueries() {
-	log.Printf("[SearchSource] Processing %d queries for source: %s", len(s.queries), s.name)
+	log.Infof("Processing %d queries for source: %s", len(s.queries), s.name)
 
 	for _, query := range s.queries {
 		videos, err := s.searchVideos(query)
 		if err != nil {
-			log.Printf("[SearchSource] Error searching for query '%s': %v", query, err)
+			log.Errorf("Error searching for query '%s': %v", query, err)
 			continue
 		}
 
 		if len(videos) == 0 {
-			log.Printf("[SearchSource] No videos found for query: %s", query)
+			log.Warnf("No videos found for query: %s", query)
 			continue
 		}
 
@@ -160,17 +161,17 @@ func (s *SearchQuerySource) processQueries() {
 		// Submit videos for processing
 		requestIDs, err := s.submissionService.SubmitBatch(videos, promptStruct, sourceType, category, maxTokens)
 		if err != nil {
-			log.Printf("[SearchSource] Error submitting videos for query '%s': %v", query, err)
+			log.Errorf("Error submitting videos for query '%s': %v", query, err)
 			continue
 		}
 
-		log.Printf("[SearchSource] Submitted %d videos for query '%s': %v", len(requestIDs), query, requestIDs)
+		log.Infof("Submitted %d videos for query '%s': %v", len(requestIDs), query, requestIDs)
 	}
 }
 
 // searchVideos uses yt-dlp to search for videos
 func (s *SearchQuerySource) searchVideos(query string) ([]string, error) {
-	log.Printf("[SearchSource] Starting search for query: '%s' (channel: %s)", query, s.channel)
+	log.Debugf("Starting search for query: '%s' (channel: %s)", query, s.channel)
 
 	var shellCmd string
 
@@ -180,25 +181,25 @@ func (s *SearchQuerySource) searchVideos(query string) ([]string, error) {
 		channelURL := fmt.Sprintf("https://www.youtube.com/channel/%s/videos", s.channel)
 		shellCmd = fmt.Sprintf("%s --match-title '%s' --print '%%(id)s' --flat-playlist --simulate -I :%d %s | head -%d",
 			s.ytDlpPath, query, s.channelVideosLookback, channelURL, s.maxVideos)
-		log.Printf("[SearchSource] Using channel-specific search with --match-title (scanning %d videos, will return up to %d)", s.channelVideosLookback, s.maxVideos)
+		log.Debugf("Using channel-specific search with --match-title (scanning %d videos, will return up to %d)", s.channelVideosLookback, s.maxVideos)
 	} else {
 		// Use ytsearch when no channel is specified
 		searchArg := fmt.Sprintf("ytsearch%d:%s", s.maxVideos, strings.TrimSpace(query))
 		shellCmd = fmt.Sprintf("%s '%s' --get-id --no-playlist", s.ytDlpPath, searchArg)
-		log.Printf("[SearchSource] Using general ytsearch (no channel filter)")
+		log.Debugf("Using general ytsearch (no channel filter)")
 	}
 
 	// Print the full command as it would appear in the shell
-	log.Printf("[SearchSource] Full yt-dlp command: %s", shellCmd)
+	log.Debugf("Full yt-dlp command: %s", shellCmd)
 
 	cmd := exec.Command("sh", "-c", shellCmd)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Printf("[SearchSource] yt-dlp search failed for query '%s': %v", query, err)
+		log.Errorf("yt-dlp search failed for query '%s': %v", query, err)
 		return nil, fmt.Errorf("yt-dlp search failed: %w", err)
 	}
 
-	log.Printf("[SearchSource] yt-dlp output for query '%s':\n%s", query, string(output))
+	log.Debugf("yt-dlp output for query '%s':\n%s", query, string(output))
 
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	var videoURLs []string
@@ -214,6 +215,6 @@ func (s *SearchQuerySource) searchVideos(query string) ([]string, error) {
 		}
 	}
 
-	log.Printf("[SearchSource] Found %d video(s) for query '%s' (channel: %s)", len(videoURLs), query, s.channel)
+	log.Infof("Found %d video(s) for query '%s' (channel: %s)", len(videoURLs), query, s.channel)
 	return videoURLs, nil
 }

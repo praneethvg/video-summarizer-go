@@ -1,11 +1,12 @@
 package core
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
 	"video-summarizer-go/internal/interfaces"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type WorkerPool struct {
@@ -47,7 +48,7 @@ func (wp *WorkerPool) startWorkers(taskType interfaces.TaskType, count int) {
 }
 
 func (wp *WorkerPool) worker(taskType interfaces.TaskType, stopChan chan struct{}, done chan struct{}) {
-	fmt.Printf("[WorkerPool] Worker goroutine started for task type: %s\n", taskType)
+	log.Infof("Worker goroutine started for task type: %s", taskType)
 	defer close(done)
 	for {
 		select {
@@ -60,16 +61,16 @@ func (wp *WorkerPool) worker(taskType interfaces.TaskType, stopChan chan struct{
 				continue
 			}
 			// Debug: log when a worker picks up a task
-			fmt.Printf("[WorkerPool] Worker picked up task: %s for request: %s\n", task.Type, task.RequestID)
+			log.Infof("Worker picked up task: %s for request: %s", task.Type, task.RequestID)
 			wp.mu.Lock()
 			processFunc := wp.processFunc
 			wp.mu.Unlock()
 			if processFunc != nil {
 				processFunc(task)
 				// Debug: log after processing function returns
-				fmt.Printf("[WorkerPool] Worker finished task: %s for request: %s\n", task.Type, task.RequestID)
+				log.Infof("Worker finished task: %s for request: %s", task.Type, task.RequestID)
 			} else {
-				fmt.Printf("[WorkerPool] No process function set for task: %s\n", task.Type)
+				log.Warnf("No process function set for task: %s", task.Type)
 				time.Sleep(100 * time.Millisecond)
 			}
 		}

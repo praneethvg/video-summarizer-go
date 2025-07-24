@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // WhisperCppTranscriptionProvider implements interfaces.TranscriptionProvider using whisper.cpp CLI
@@ -33,14 +34,14 @@ func (p *WhisperCppTranscriptionProvider) TranscribeAudio(audioPath string) (str
 	tmpFile.Close()
 
 	cmdArgs := []string{"-m", p.ModelPath, "-f", audioPath, "-otxt", "-of", tmpBasePath}
-	log.Printf("[Whisper] Running command: %s %v", p.WhisperPath, cmdArgs)
+	log.Infof("Running command: %s %v", p.WhisperPath, cmdArgs)
 	cmd := exec.Command(p.WhisperPath, cmdArgs...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	if err := cmd.Run(); err != nil {
 		os.Remove(tmpBasePath + ".txt")
-		log.Printf("[Whisper] ERROR: %v, output: %s", err, out.String())
+		log.Errorf("%v, output: %s", err, out.String())
 		return "", fmt.Errorf("whisper.cpp error: %v, output: %s", err, out.String())
 	}
 
@@ -48,11 +49,11 @@ func (p *WhisperCppTranscriptionProvider) TranscribeAudio(audioPath string) (str
 	// Check file size and log output if empty
 	info, statErr := os.Stat(transcriptPath)
 	if statErr != nil {
-		log.Printf("[Whisper] ERROR: could not stat transcript file: %v", statErr)
+		log.Errorf("could not stat transcript file: %v", statErr)
 	} else {
-		log.Printf("[Whisper] Transcript file size: %d bytes", info.Size())
+		log.Debugf("Transcript file size: %d bytes", info.Size())
 		if info.Size() == 0 {
-			log.Printf("[Whisper] WARNING: transcript file is empty! Command output: %s", out.String())
+			log.Warnf("transcript file is empty! Command output: %s", out.String())
 		}
 	}
 

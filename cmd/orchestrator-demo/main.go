@@ -9,6 +9,8 @@ import (
 	"video-summarizer-go/internal/config"
 	"video-summarizer-go/internal/core"
 	"video-summarizer-go/internal/interfaces"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -17,18 +19,18 @@ func main() {
 
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
-		fmt.Println("Failed to load config:", err)
+		log.Errorf("Failed to load config: %v", err)
 		os.Exit(1)
 	}
 
 	engine, _, _, err := core.SetupEngine(cfg)
 	if err != nil {
-		fmt.Println("Failed to set up engine:", err)
+		log.Errorf("Failed to set up engine: %v", err)
 		os.Exit(1)
 	}
 
 	videoURL := "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-	fmt.Println("Submitting job for:", videoURL)
+	log.Infof("Submitting job for: %s", videoURL)
 
 	requestID := fmt.Sprintf("demo-%d", time.Now().Unix())
 	// Start processing
@@ -38,59 +40,59 @@ func main() {
 	maxTokens := 10000
 	err = engine.StartRequest(requestID, videoURL, prompt, sourceType, category, maxTokens)
 	if err != nil {
-		fmt.Printf("Failed to start request: %v\n", err)
+		log.Errorf("Failed to start request: %v", err)
 		return
 	}
 
-	fmt.Println("Processing started. Waiting for completion...")
+	log.Infof("Processing started. Waiting for completion...")
 	time.Sleep(30 * time.Second)
 
 	state, err := engine.GetRequestState(requestID)
 	if err != nil {
-		fmt.Println("Failed to get final state:", err)
+		log.Errorf("Failed to get final state: %v", err)
 		return
 	}
 
-	fmt.Printf("\n=== Final State ===\n")
-	fmt.Printf("Request ID: %s\n", state.RequestID)
-	fmt.Printf("Status: %s\n", state.Status)
-	fmt.Printf("Error: %s\n", state.Error)
+	log.Debugf("=== Final State ===")
+	log.Infof("Request ID: %s", state.RequestID)
+	log.Infof("Status: %s", state.Status)
+	log.Infof("Error: %s", state.Error)
 
 	if state.VideoInfo != nil {
-		fmt.Printf("\n=== Video Info ===\n")
+		log.Debugf("=== Video Info ===")
 		if title, ok := state.VideoInfo["title"].(string); ok {
-			fmt.Printf("Title: %s\n", title)
+			log.Infof("Title: %s", title)
 		}
 		if duration, ok := state.VideoInfo["duration"].(float64); ok {
-			fmt.Printf("Duration: %.2f seconds\n", duration)
+			log.Infof("Duration: %.2f seconds", duration)
 		}
 		if uploader, ok := state.VideoInfo["uploader"].(string); ok {
-			fmt.Printf("Uploader: %s\n", uploader)
+			log.Infof("Uploader: %s", uploader)
 		}
 		if viewCount, ok := state.VideoInfo["view_count"].(float64); ok {
-			fmt.Printf("View Count: %.0f\n", viewCount)
+			log.Infof("View Count: %.0f", viewCount)
 		}
 	}
 
 	if state.AudioPath != "" {
-		fmt.Printf("\n=== Audio ===\n")
-		fmt.Printf("Audio Path: %s\n", state.AudioPath)
+		log.Debugf("=== Audio ===")
+		log.Infof("Audio Path: %s", state.AudioPath)
 	}
 
 	if state.Transcript != "" {
-		fmt.Printf("\n=== Transcript ===\n")
-		fmt.Printf("Transcript: %s\n", state.Transcript)
+		log.Debugf("=== Transcript ===")
+		log.Infof("Transcript: %s", state.Transcript)
 	}
 
 	if state.Summary != "" {
-		fmt.Printf("\n=== Summary ===\n")
-		fmt.Printf("Summary: %s\n", state.Summary)
+		log.Debugf("=== Summary ===")
+		log.Infof("Summary: %s", state.Summary)
 	}
 
 	if state.OutputPath != "" {
-		fmt.Printf("\n=== Output ===\n")
-		fmt.Printf("Output Path: %s\n", state.OutputPath)
+		log.Debugf("=== Output ===")
+		log.Infof("Output Path: %s", state.OutputPath)
 	}
 
-	fmt.Printf("\nDemo complete.\n")
+	log.Debugf("Demo complete.")
 }

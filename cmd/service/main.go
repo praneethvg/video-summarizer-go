@@ -4,12 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"video-summarizer-go/internal/api"
 	"video-summarizer-go/internal/config"
@@ -68,19 +69,19 @@ func main() {
 	// Add sources from configuration
 	for _, sourceConfig := range serviceCfg.BackgroundSources.Sources {
 		if !sourceConfig.Enabled {
-			log.Printf("Skipping disabled source: %s", sourceConfig.Name)
+			log.Warnf("Skipping disabled source: %s", sourceConfig.Name)
 			continue
 		}
 
 		source, err := sourceFactory.CreateSource(&sourceConfig, appCfg.YtDlpPath)
 		if err != nil {
-			log.Printf("Failed to create source %s: %v", sourceConfig.Name, err)
+			log.Errorf("Failed to create source %s: %v", sourceConfig.Name, err)
 			continue
 		}
 
 		interval, err := sourceConfig.GetIntervalDuration()
 		if err != nil {
-			log.Printf("Invalid interval for source %s: %v", sourceConfig.Name, err)
+			log.Errorf("Invalid interval for source %s: %v", sourceConfig.Name, err)
 			continue
 		}
 
@@ -90,7 +91,7 @@ func main() {
 			MaxVideos: sourceConfig.MaxVideosPerRun,
 		})
 
-		log.Printf("Added source: %s (type: %s, interval: %s)", sourceConfig.Name, sourceConfig.Type, sourceConfig.Interval)
+		log.Infof("Added source: %s (type: %s, interval: %s)", sourceConfig.Name, sourceConfig.Type, sourceConfig.Interval)
 	}
 
 	// Create HTTP server
@@ -104,12 +105,12 @@ func main() {
 	defer cancel()
 
 	if err := sourceManager.StartAll(ctx); err != nil {
-		log.Printf("Warning: Failed to start some video sources: %v", err)
+		log.Warnf("Failed to start some video sources: %v", err)
 	}
 
 	// Start the HTTP server in a goroutine
 	go func() {
-		log.Printf("Starting HTTP server on %s:%d", serviceCfg.Server.Host, serviceCfg.Server.Port)
+		log.Infof("Starting HTTP server on %s:%d", serviceCfg.Server.Host, serviceCfg.Server.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server error: %v", err)
 		}
@@ -134,12 +135,12 @@ func main() {
 
 	// Stop video sources
 	if err := sourceManager.StopAll(); err != nil {
-		log.Printf("Error stopping video sources: %v", err)
+		log.Errorf("Error stopping video sources: %v", err)
 	}
 
 	// Stop HTTP server
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Error shutting down HTTP server: %v", err)
+		log.Errorf("Error shutting down HTTP server: %v", err)
 	}
 
 	// Stop processing engine

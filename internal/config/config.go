@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,9 +54,9 @@ func LoadConfig(path string) (*AppConfig, error) {
 	}
 
 	// Debug logging
-	fmt.Printf("[Config] Loaded config from %s\n", path)
-	fmt.Printf("[Config] OpenAI model: %s\n", cfg.OpenAIModel)
-	fmt.Printf("[Config] Summarizer provider: %s\n", cfg.SummarizerProvider)
+	log.Infof("Loaded config from %s", path)
+	log.Infof("OpenAI model: %s", cfg.OpenAIModel)
+	log.Infof("Summarizer provider: %s", cfg.SummarizerProvider)
 
 	return &cfg, nil
 }

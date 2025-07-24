@@ -11,6 +11,7 @@ import (
 
 	"video-summarizer-go/internal/config"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
@@ -117,17 +118,17 @@ func (g *GDriveOutputProvider) uploadFileAndCleanup(requestID, title, filePath, 
 	}
 	defer f.Close()
 	start := time.Now()
-	fmt.Printf("[GDrive] Uploading %s for request %s to user: %s, category: %s...\n", filename, requestID, user, category)
+	log.Infof("Uploading %s for request %s to user: %s, category: %s...", filename, requestID, user, category)
 	_, err = g.driveService.Files.Create(file).Media(f).Do()
 	elapsed := time.Since(start)
 	if err != nil {
-		fmt.Printf("[GDrive] ERROR uploading %s for request %s: %v (%.2fs)\n", filename, requestID, err, elapsed.Seconds())
+		log.Errorf("ERROR uploading %s for request %s: %v (%.2fs)", filename, requestID, err, elapsed.Seconds())
 	} else {
-		fmt.Printf("[GDrive] Uploaded %s for request %s in %.2fs\n", filename, requestID, elapsed.Seconds())
+		log.Infof("Uploaded %s for request %s in %.2fs", filename, requestID, elapsed.Seconds())
 	}
 	// Cleanup file after upload
 	if rmErr := os.Remove(filePath); rmErr != nil {
-		fmt.Printf("[GDrive] WARNING: failed to remove temp file %s: %v\n", filePath, rmErr)
+		log.Warnf("WARNING: failed to remove temp file %s: %v", filePath, rmErr)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to upload %s to Google Drive: %w", filename, err)
@@ -143,7 +144,7 @@ func (g *GDriveOutputProvider) getOrCreateUserFolder(user string) (string, error
 		return "", fmt.Errorf("failed to search for user folder: %w", err)
 	}
 	if len(files.Files) > 0 {
-		fmt.Printf("[GDrive] Found existing user folder: %s (ID: %s)\n", user, files.Files[0].Id)
+		log.Infof("Found existing user folder: %s (ID: %s)", user, files.Files[0].Id)
 		return files.Files[0].Id, nil
 	}
 	folder := &drive.File{
@@ -155,7 +156,7 @@ func (g *GDriveOutputProvider) getOrCreateUserFolder(user string) (string, error
 	if err != nil {
 		return "", fmt.Errorf("failed to create user folder: %w", err)
 	}
-	fmt.Printf("[GDrive] Created new user folder: %s (ID: %s)\n", user, createdFolder.Id)
+	log.Infof("Created new user folder: %s (ID: %s)", user, createdFolder.Id)
 	return createdFolder.Id, nil
 }
 
@@ -167,7 +168,7 @@ func (g *GDriveOutputProvider) getOrCreateCategoryFolder(category string, userFo
 		return "", fmt.Errorf("failed to search for category folder: %w", err)
 	}
 	if len(files.Files) > 0 {
-		fmt.Printf("[GDrive] Found existing category folder: %s (ID: %s)\n", category, files.Files[0].Id)
+		log.Infof("Found existing category folder: %s (ID: %s)", category, files.Files[0].Id)
 		return files.Files[0].Id, nil
 	}
 	folder := &drive.File{
@@ -179,7 +180,7 @@ func (g *GDriveOutputProvider) getOrCreateCategoryFolder(category string, userFo
 	if err != nil {
 		return "", fmt.Errorf("failed to create category folder: %w", err)
 	}
-	fmt.Printf("[GDrive] Created new category folder: %s (ID: %s)\n", category, createdFolder.Id)
+	log.Infof("Created new category folder: %s (ID: %s)", category, createdFolder.Id)
 	return createdFolder.Id, nil
 }
 
@@ -197,7 +198,7 @@ func (g *GDriveOutputProvider) getOrCreateVideoFolder(requestID, title, category
 
 	// If folder exists, return its ID
 	if len(files.Files) > 0 {
-		fmt.Printf("[GDrive] Found existing video folder: %s (ID: %s)\n", folderName, files.Files[0].Id)
+		log.Infof("Found existing video folder: %s (ID: %s)", folderName, files.Files[0].Id)
 		return files.Files[0].Id, nil
 	}
 
@@ -213,7 +214,7 @@ func (g *GDriveOutputProvider) getOrCreateVideoFolder(requestID, title, category
 		return "", fmt.Errorf("failed to create video folder: %w", err)
 	}
 
-	fmt.Printf("[GDrive] Created new video folder: %s (ID: %s)\n", folderName, createdFolder.Id)
+	log.Infof("Created new video folder: %s (ID: %s)", folderName, createdFolder.Id)
 	return createdFolder.Id, nil
 }
 

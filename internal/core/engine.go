@@ -287,7 +287,7 @@ func (e *ProcessingEngine) onSummarizationCompleted(event interfaces.Event) {
 }
 
 func (e *ProcessingEngine) onOutputCompleted(event interfaces.Event) {
-	fmt.Printf("[Engine][DEBUG] onOutputCompleted called for request: %s\n", event.RequestID)
+	log.Debugf("onOutputCompleted called for request: %s", event.RequestID)
 	e.taskQueue.Enqueue(&interfaces.Task{
 		ID:        fmt.Sprintf("task-%s-cleanup-%d", event.RequestID, time.Now().UnixNano()),
 		Type:      interfaces.TaskCleanup,
@@ -299,16 +299,16 @@ func (e *ProcessingEngine) onOutputCompleted(event interfaces.Event) {
 
 // Worker processing logic (real plugins where available)
 func (e *ProcessingEngine) WorkerProcess(task *interfaces.Task) {
-	fmt.Printf("[Engine] WorkerProcess called for task: %s, request: %s\n", task.Type, task.RequestID)
+	log.Infof("WorkerProcess called for task: %s, request: %s", task.Type, task.RequestID)
 
 	// Use task processor
 	if processor, exists := e.taskProcessorRegistry.GetProcessor(task.Type); exists {
 		if err := processor.Process(context.Background(), task, e); err != nil {
-			fmt.Printf("[Engine][ERROR] Task processor failed for %s: %v\n", task.Type, err)
+			log.Errorf("Task processor failed for %s: %v", task.Type, err)
 		}
 		return
 	}
 
 	// Fallback for unknown task types
-	fmt.Printf("[Engine][ERROR] No processor found for task type: %s\n", task.Type)
+	log.Errorf("No processor found for task type: %s", task.Type)
 }

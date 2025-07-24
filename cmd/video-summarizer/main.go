@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
 	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 )
 
 type Response struct {
@@ -30,7 +30,7 @@ func main() {
 	}
 
 	// Start server
-	fmt.Printf("Server starting on port %s...\n", port)
+	log.Infof("Server starting on port %s...", port)
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET  / - Home endpoint")
 	fmt.Println("  GET  /health - Health check")
