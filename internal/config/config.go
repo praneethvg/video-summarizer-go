@@ -32,10 +32,12 @@ type AppConfig struct {
 
 // ConcurrencyConfig defines concurrency limits for different task types
 type ConcurrencyConfig struct {
-	Transcription   int `yaml:"transcription"`
-	Summarization   int `yaml:"summarization"`
-	VideoProcessing int `yaml:"video_processing"`
-	Output          int `yaml:"output"`
+	Transcription int `yaml:"transcription"`
+	Summarization int `yaml:"summarization"`
+	VideoInfo     int `yaml:"video_info"`
+	Output        int `yaml:"output"`
+	Cleanup       int `yaml:"cleanup"`
+	AudioDownload int `yaml:"audio_download"`
 }
 
 func LoadConfig(path string) (*AppConfig, error) {
@@ -49,5 +51,11 @@ func LoadConfig(path string) (*AppConfig, error) {
 	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}
+
+	// Debug logging
+	fmt.Printf("[Config] Loaded config from %s\n", path)
+	fmt.Printf("[Config] OpenAI model: %s\n", cfg.OpenAIModel)
+	fmt.Printf("[Config] Summarizer provider: %s\n", cfg.SummarizerProvider)
+
 	return &cfg, nil
 }

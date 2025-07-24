@@ -19,17 +19,13 @@ background_sources:
       enabled: true
       interval: "30m"              # How often to search (e.g., "30m", "1h", "6h")
       max_videos_per_run: 5        # Maximum videos to process per search
+      channel_videos_lookback: 50  # How many videos to scan when searching within a channel
       prompt_id: "educational"     # Prompt ID to use for this source
       config:
         queries:
           - "machine learning tutorials"
           - "Go programming tips"
-          - "software architecture"
-        channels:                  # Optional: Only videos from these channels
-          - "UC8butISFwT-Wl7EV0hUK0BQ"  # freeCodeCamp channel ID
-          - "UCW5YeuERMmlnqo4oq8vwUpg"  # The Net Ninja channel ID
-          - "freeCodeCamp"              # Can also use channel names
-          - "Traversy Media"
+        channel: "UC8butISFwT-Wl7EV0hUK0BQ"  # Only one channel per source (channel ID or name)
     
     # YouTube Search Source - Market News (no channel filtering)
     - name: "market_news"
@@ -37,12 +33,13 @@ background_sources:
       enabled: true
       interval: "1h"
       max_videos_per_run: 3
+      channel_videos_lookback: 30  # Scan 30 videos when searching within channels
       prompt_id: "market_report"
       config:
         queries:
-          - "Bloomberg market news"
-          - "CNBC financial updates"
-        # No channels specified = search all channels
+          - "market analysis"
+          - "stock market news"
+        # No channel specified = search all channels
     
     # RSS Feed Source (future implementation)
     # - name: "tech_podcasts"

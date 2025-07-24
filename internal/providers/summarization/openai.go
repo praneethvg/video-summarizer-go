@@ -3,13 +3,15 @@ package summarization
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"video-summarizer-go/internal/config"
 
-	openai "github.com/sashabaranov/go-openai"
 	"io/ioutil"
 	"os"
+
+	openai "github.com/sashabaranov/go-openai"
 )
 
 // OpenAISummarizationProvider implements interfaces.SummarizationProvider using OpenAI Chat API
@@ -26,13 +28,15 @@ func NewOpenAISummarizationProviderFromConfig(cfg *config.AppConfig) (*OpenAISum
 	}
 	model := cfg.OpenAIModel
 	if model == "" {
-		model = "gpt-3.5-turbo"
+		model = "gpt-4o"
 	}
 	maxTokens := cfg.OpenAIMaxTokens
 	if maxTokens == 0 {
 		maxTokens = 10000 // default
 	}
 	client := openai.NewClient(cfg.OpenAIKey)
+
+	log.Printf("[OpenAI] Initializing provider with model: %s (from config: %s)", model, cfg.OpenAIModel)
 
 	return &OpenAISummarizationProvider{
 		client:    client,
@@ -46,14 +50,14 @@ func (p *OpenAISummarizationProvider) SetPromptManager(pm *config.PromptManager)
 	p.promptManager = pm
 }
 
-func (p *OpenAISummarizationProvider) SummarizeText(text string, prompt string) (string, error) {
-	ctx := context.Background()
-
-	// Resolve prompt (either ID or direct content)
+// SummarizeText summarizes the given text using OpenAI
+func (p *OpenAISummarizationProvider) SummarizeText(ctx context.Context, text, prompt string, maxTokens int) (string, error) {
 	resolvedPrompt, err := p.promptManager.ResolvePrompt(prompt)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve prompt: %w", err)
 	}
+
+	log.Printf("[OpenAI] Using prompt ID: %s, model: %s", prompt, p.model)
 
 	messages := []openai.ChatCompletionMessage{
 		{
@@ -62,7 +66,7 @@ func (p *OpenAISummarizationProvider) SummarizeText(text string, prompt string) 
 		},
 		{
 			Role:    openai.ChatMessageRoleUser,
-			Content: fmt.Sprintf("Summarize the following transcript:\n\n%s", text),
+			Content: text,
 		},
 	}
 	req := openai.ChatCompletionRequest{
@@ -71,10 +75,16 @@ func (p *OpenAISummarizationProvider) SummarizeText(text string, prompt string) 
 		MaxTokens:   p.maxTokens,
 		Temperature: 0.4,
 	}
+
+	log.Printf("[OpenAI] Sending request with model: %s", req.Model)
+
 	resp, err := p.client.CreateChatCompletion(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("OpenAI API error: %w", err)
 	}
+
+	log.Printf("[OpenAI] Response received with model: %s", resp.Model)
+
 	summary := strings.TrimSpace(resp.Choices[0].Message.Content)
 
 	tmpFile, err := ioutil.TempFile("", "summary-*.txt")

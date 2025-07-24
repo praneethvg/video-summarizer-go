@@ -27,15 +27,17 @@ type BackgroundSourcesConfig struct {
 	Sources []SourceConfig `yaml:"sources"`
 }
 
-// SourceConfig defines a single background source configuration
+// SourceConfig represents a single background video source configuration
 type SourceConfig struct {
-	Name            string                 `yaml:"name"`
-	Type            string                 `yaml:"type"`
-	Enabled         bool                   `yaml:"enabled"`
-	Interval        string                 `yaml:"interval"` // e.g., "30m", "1h"
-	MaxVideosPerRun int                    `yaml:"max_videos_per_run"`
-	PromptID        string                 `yaml:"prompt_id"`
-	Config          map[string]interface{} `yaml:"config"` // Source-specific configuration
+	Name                  string                 `yaml:"name"`
+	Type                  string                 `yaml:"type"`
+	Enabled               bool                   `yaml:"enabled"`
+	Interval              string                 `yaml:"interval"`
+	MaxVideosPerRun       int                    `yaml:"max_videos_per_run"`
+	ChannelVideosLookback int                    `yaml:"channel_videos_lookback"` // How many videos to scan when searching within a channel
+	PromptID              string                 `yaml:"prompt_id"`
+	Category              string                 `yaml:"category"`
+	Config                map[string]interface{} `yaml:"config"`
 }
 
 // LoadServiceConfig loads the service configuration from a file

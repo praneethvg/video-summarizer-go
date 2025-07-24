@@ -8,6 +8,7 @@ import (
 
 	"video-summarizer-go/internal/config"
 	"video-summarizer-go/internal/core"
+	"video-summarizer-go/internal/interfaces"
 )
 
 func main() {
@@ -30,9 +31,14 @@ func main() {
 	fmt.Println("Submitting job for:", videoURL)
 
 	requestID := fmt.Sprintf("demo-%d", time.Now().Unix())
-	err = engine.StartRequest(requestID, videoURL)
+	// Start processing
+	prompt := interfaces.Prompt{Type: interfaces.PromptTypeID, Prompt: "market_report"}
+	sourceType := "video"
+	category := "general"
+	maxTokens := 10000
+	err = engine.StartRequest(requestID, videoURL, prompt, sourceType, category, maxTokens)
 	if err != nil {
-		fmt.Println("Failed to start request:", err)
+		fmt.Printf("Failed to start request: %v\n", err)
 		return
 	}
 

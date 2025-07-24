@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"video-summarizer-go/internal/config"
+	"video-summarizer-go/internal/interfaces"
 	"video-summarizer-go/internal/services"
 	"video-summarizer-go/internal/sources"
 )
@@ -29,9 +30,10 @@ func NewAPIHandler(submissionService *services.VideoSubmissionService, promptMan
 
 // SubmitVideoRequest represents a request to submit a video for processing
 type SubmitVideoRequest struct {
-	URL      string                 `json:"url"`
-	Prompt   string                 `json:"prompt,omitempty"` // Prompt ID or direct prompt content
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	URL      string            `json:"url"`
+	Prompt   interfaces.Prompt `json:"prompt"`             // Unified prompt struct
+	Category string            `json:"category,omitempty"` // Category for folder organization (default: "general")
+	// No metadata field
 }
 
 // SubmitVideoResponse represents the response from submitting a video
@@ -54,7 +56,6 @@ type StatusResponse struct {
 	Transcript  string                 `json:"transcript_path,omitempty"`
 	Summary     string                 `json:"summary_path,omitempty"`
 	OutputPath  string                 `json:"output_path,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // HealthResponse represents the health check response
@@ -84,18 +85,17 @@ func (h *APIHandler) SubmitVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add API source metadata
-	if req.Metadata == nil {
-		req.Metadata = make(map[string]interface{})
+	// In the SubmitVideo handler, set SourceType and URL directly
+	// (Assume all current requests are for videos)
+	sourceType := "video"
+	url := req.URL
+	category := req.Category
+	if category == "" {
+		category = "general"
 	}
-	req.Metadata["source"] = "api"
-
-	// Use default prompt if none provided
 	prompt := req.Prompt
-	if prompt == "" {
-		prompt = "general"
-	}
-
-	requestID, err := h.submissionService.SubmitVideo(req.URL, prompt, req.Metadata)
+	maxTokens := 10000 // Default value, can be made configurable
+	requestID, err := h.submissionService.SubmitVideo(url, prompt, sourceType, category, maxTokens)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to submit video: %v", err), http.StatusInternalServerError)
 		return
@@ -150,7 +150,6 @@ func (h *APIHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		Transcript:  state.Transcript,
 		Summary:     state.Summary,
 		OutputPath:  state.OutputPath,
-		Metadata:    state.Metadata,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

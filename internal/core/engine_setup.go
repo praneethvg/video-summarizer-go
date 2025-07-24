@@ -18,10 +18,12 @@ func SetupEngine(appCfg *config.AppConfig) (*ProcessingEngine, *WorkerPool, *con
 	taskQueue := NewInMemoryTaskQueue()
 
 	concurrencyLimits := map[interfaces.TaskType]int{
-		interfaces.TaskVideoInfo:     appCfg.Concurrency.VideoProcessing,
+		interfaces.TaskVideoInfo:     appCfg.Concurrency.VideoInfo,
 		interfaces.TaskTranscription: appCfg.Concurrency.Transcription,
 		interfaces.TaskSummarization: appCfg.Concurrency.Summarization,
 		interfaces.TaskOutput:        appCfg.Concurrency.Output,
+		interfaces.TaskCleanup:       appCfg.Concurrency.Cleanup,
+		interfaces.TaskAudioDownload: appCfg.Concurrency.AudioDownload,
 	}
 
 	workerPool := NewWorkerPool(taskQueue, concurrencyLimits, nil)
@@ -69,6 +71,7 @@ func SetupEngine(appCfg *config.AppConfig) (*ProcessingEngine, *WorkerPool, *con
 		transcriptionProvider,
 		summarizationProvider,
 		outputProvider,
+		promptManager,
 	)
 	workerPool.SetProcessFunc(engine.WorkerProcess)
 

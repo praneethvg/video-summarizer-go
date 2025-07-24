@@ -18,8 +18,8 @@ import (
 )
 
 func main() {
-	credentialsFile := flag.String("credentials", "gdrive_credentials.json", "Path to OAuth2 credentials.json file")
-	tokenFile := flag.String("token", "../gdrive_token.json", "Path to save token file (default: project base directory)")
+	credentialsFile := flag.String("credentials", "oauth_client_secret.json", "Path to OAuth2 credentials.json file")
+	tokenFile := flag.String("token", "gdrive_token.json", "Path to save token file (default: project base directory)")
 	flag.Parse()
 
 	b, err := os.ReadFile(*credentialsFile)

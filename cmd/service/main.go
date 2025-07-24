@@ -14,11 +14,16 @@ import (
 	"video-summarizer-go/internal/api"
 	"video-summarizer-go/internal/config"
 	"video-summarizer-go/internal/core"
+	"video-summarizer-go/internal/logging"
 	"video-summarizer-go/internal/services"
 	"video-summarizer-go/internal/sources"
 )
 
 func main() {
+	if err := logging.SetupLogging("logging.yaml"); err != nil {
+		panic(err)
+	}
+
 	serviceConfigPath := flag.String("service-config", "service.yaml", "Path to service configuration file")
 	flag.Parse()
 

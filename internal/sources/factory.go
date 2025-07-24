@@ -47,7 +47,7 @@ func (f *SourceFactory) CreateSource(sourceConfig *config.SourceConfig, ytDlpPat
 
 	switch sourceConfig.Type {
 	case "youtube_search":
-		return f.createYouTubeSearchSource(sourceConfig, interval, metadata, ytDlpPath)
+		return f.createYouTubeSearchSource(sourceConfig, interval, ytDlpPath)
 	case "rss_feed":
 		return f.createRSSFeedSource(sourceConfig, interval, metadata)
 	default:
@@ -56,7 +56,7 @@ func (f *SourceFactory) CreateSource(sourceConfig *config.SourceConfig, ytDlpPat
 }
 
 // createYouTubeSearchSource creates a YouTube search source
-func (f *SourceFactory) createYouTubeSearchSource(sourceConfig *config.SourceConfig, interval time.Duration, metadata map[string]interface{}, ytDlpPath string) (VideoSource, error) {
+func (f *SourceFactory) createYouTubeSearchSource(sourceConfig *config.SourceConfig, interval time.Duration, ytDlpPath string) (VideoSource, error) {
 	queries, err := sourceConfig.GetQueries()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queries for source %s: %w", sourceConfig.Name, err)
@@ -66,25 +66,33 @@ func (f *SourceFactory) createYouTubeSearchSource(sourceConfig *config.SourceCon
 		return nil, fmt.Errorf("no queries specified for source %s", sourceConfig.Name)
 	}
 
-	// Get channels from config if specified
-	channels := []string{}
-	if channelsConfig, ok := sourceConfig.Config["channels"].([]interface{}); ok {
-		for _, ch := range channelsConfig {
-			if channel, ok := ch.(string); ok {
-				channels = append(channels, channel)
-			}
-		}
+	// Get channel from config if specified
+	channel := ""
+	if ch, ok := sourceConfig.Config["channel"].(string); ok {
+		channel = ch
 	}
 
+	// Set default channel videos lookback if not specified
+	channelVideosLookback := sourceConfig.ChannelVideosLookback
+	if channelVideosLookback == 0 {
+		channelVideosLookback = 50 // Default to scanning 50 videos
+	}
+
+	category := "general"
+	if sourceConfig.Category != "" {
+		category = sourceConfig.Category
+	}
 	return NewSearchQuerySource(
 		sourceConfig.Name,
 		queries,
-		channels,
+		channel,
 		interval,
 		sourceConfig.MaxVideosPerRun,
+		channelVideosLookback,
 		ytDlpPath,
 		f.submissionService,
-		metadata,
+		category,
+		sourceConfig.PromptID,
 	), nil
 }
 

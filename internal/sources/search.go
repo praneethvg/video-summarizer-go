@@ -9,19 +9,22 @@ import (
 	"sync"
 	"time"
 
+	"video-summarizer-go/internal/interfaces"
 	"video-summarizer-go/internal/services"
 )
 
 // SearchQuerySource implements VideoSource for YouTube search queries
 type SearchQuerySource struct {
-	name              string
-	queries           []string
-	channels          []string // Channel IDs or names to filter by
-	interval          time.Duration
-	maxVideos         int
-	ytDlpPath         string
-	submissionService *services.VideoSubmissionService
-	metadata          map[string]interface{}
+	name                  string
+	queries               []string
+	channel               string // Only one channel per source
+	interval              time.Duration
+	maxVideos             int
+	channelVideosLookback int // How many videos to scan when searching within a channel
+	ytDlpPath             string
+	submissionService     *services.VideoSubmissionService
+	Category              string
+	PromptID              string
 
 	running bool
 	stopCh  chan struct{}
@@ -32,23 +35,27 @@ type SearchQuerySource struct {
 func NewSearchQuerySource(
 	name string,
 	queries []string,
-	channels []string,
+	channel string,
 	interval time.Duration,
 	maxVideos int,
+	channelVideosLookback int,
 	ytDlpPath string,
 	submissionService *services.VideoSubmissionService,
-	metadata map[string]interface{},
+	category string,
+	promptID string,
 ) *SearchQuerySource {
 	return &SearchQuerySource{
-		name:              name,
-		queries:           queries,
-		channels:          channels,
-		interval:          interval,
-		maxVideos:         maxVideos,
-		ytDlpPath:         ytDlpPath,
-		submissionService: submissionService,
-		metadata:          metadata,
-		stopCh:            make(chan struct{}),
+		name:                  name,
+		queries:               queries,
+		channel:               channel,
+		interval:              interval,
+		maxVideos:             maxVideos,
+		channelVideosLookback: channelVideosLookback,
+		ytDlpPath:             ytDlpPath,
+		submissionService:     submissionService,
+		Category:              category,
+		PromptID:              promptID,
+		stopCh:                make(chan struct{}),
 	}
 }
 
@@ -139,21 +146,19 @@ func (s *SearchQuerySource) processQueries() {
 			videos = videos[:s.maxVideos]
 		}
 
-		// Add metadata for this source
-		metadata := make(map[string]interface{})
-		for k, v := range s.metadata {
-			metadata[k] = v
+		prompt := s.PromptID
+		if prompt == "" {
+			prompt = "general"
 		}
-		metadata["source"] = "search_query"
-		metadata["query"] = query
-		metadata["source_name"] = s.name
-
-		prompt := "general"
-		if p, ok := metadata["prompt"].(string); ok && p != "" {
-			prompt = p
+		promptStruct := interfaces.Prompt{Type: interfaces.PromptTypeID, Prompt: prompt}
+		sourceType := "video"
+		category := s.Category
+		if category == "" {
+			category = "general"
 		}
+		maxTokens := 10000
 		// Submit videos for processing
-		requestIDs, err := s.submissionService.SubmitBatch(videos, prompt, metadata)
+		requestIDs, err := s.submissionService.SubmitBatch(videos, promptStruct, sourceType, category, maxTokens)
 		if err != nil {
 			log.Printf("[SearchSource] Error submitting videos for query '%s': %v", query, err)
 			continue
@@ -165,79 +170,50 @@ func (s *SearchQuerySource) processQueries() {
 
 // searchVideos uses yt-dlp to search for videos
 func (s *SearchQuerySource) searchVideos(query string) ([]string, error) {
-	// Use yt-dlp to search for videos
-	// yt-dlp "ytsearch10:query" --get-id --no-playlist
-	searchArg := fmt.Sprintf("ytsearch%d:%s", s.maxVideos*2, query) // Search more to account for filtering
+	log.Printf("[SearchSource] Starting search for query: '%s' (channel: %s)", query, s.channel)
 
-	cmd := exec.Command(s.ytDlpPath, searchArg, "--get-id", "--no-playlist")
+	var shellCmd string
+
+	if s.channel != "" {
+		// Use --match-title with channel videos URL when channel is provided
+		// Scan through channelVideosLookback videos, then limit to maxVideos results
+		channelURL := fmt.Sprintf("https://www.youtube.com/channel/%s/videos", s.channel)
+		shellCmd = fmt.Sprintf("%s --match-title '%s' --print '%%(id)s' --flat-playlist --simulate -I :%d %s | head -%d",
+			s.ytDlpPath, query, s.channelVideosLookback, channelURL, s.maxVideos)
+		log.Printf("[SearchSource] Using channel-specific search with --match-title (scanning %d videos, will return up to %d)", s.channelVideosLookback, s.maxVideos)
+	} else {
+		// Use ytsearch when no channel is specified
+		searchArg := fmt.Sprintf("ytsearch%d:%s", s.maxVideos, strings.TrimSpace(query))
+		shellCmd = fmt.Sprintf("%s '%s' --get-id --no-playlist", s.ytDlpPath, searchArg)
+		log.Printf("[SearchSource] Using general ytsearch (no channel filter)")
+	}
+
+	// Print the full command as it would appear in the shell
+	log.Printf("[SearchSource] Full yt-dlp command: %s", shellCmd)
+
+	cmd := exec.Command("sh", "-c", shellCmd)
 	output, err := cmd.Output()
 	if err != nil {
+		log.Printf("[SearchSource] yt-dlp search failed for query '%s': %v", query, err)
 		return nil, fmt.Errorf("yt-dlp search failed: %w", err)
 	}
 
-	// Parse video IDs from output
+	log.Printf("[SearchSource] yt-dlp output for query '%s':\n%s", query, string(output))
+
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	var videoURLs []string
-
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-
-		// Convert video ID to full URL
 		videoURL := fmt.Sprintf("https://www.youtube.com/watch?v=%s", line)
-
-		// If channels are specified, filter by channel
-		if len(s.channels) > 0 {
-			if s.isVideoFromAllowedChannel(videoURL) {
-				videoURLs = append(videoURLs, videoURL)
-			}
-		} else {
-			videoURLs = append(videoURLs, videoURL)
-		}
-
-		// Stop if we have enough videos
+		videoURLs = append(videoURLs, videoURL)
 		if len(videoURLs) >= s.maxVideos {
 			break
 		}
 	}
 
+	log.Printf("[SearchSource] Found %d video(s) for query '%s' (channel: %s)", len(videoURLs), query, s.channel)
 	return videoURLs, nil
-}
-
-// isVideoFromAllowedChannel checks if a video is from one of the allowed channels
-func (s *SearchQuerySource) isVideoFromAllowedChannel(videoURL string) bool {
-	// Get video info to extract channel information
-	cmd := exec.Command(s.ytDlpPath, videoURL, "--get", "channel_id", "--get", "channel")
-	output, err := cmd.Output()
-	if err != nil {
-		log.Printf("[SearchSource] Error getting channel info for %s: %v", videoURL, err)
-		return false
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	if len(lines) < 2 {
-		return false
-	}
-
-	channelID := strings.TrimSpace(lines[0])
-	channelName := strings.TrimSpace(lines[1])
-
-	// Check if channel ID or name matches any allowed channels
-	for _, allowedChannel := range s.channels {
-		allowedChannel = strings.TrimSpace(allowedChannel)
-
-		// Check by channel ID
-		if channelID == allowedChannel {
-			return true
-		}
-
-		// Check by channel name (case-insensitive)
-		if strings.EqualFold(channelName, allowedChannel) {
-			return true
-		}
-	}
-
-	return false
 }

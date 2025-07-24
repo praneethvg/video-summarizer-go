@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"video-summarizer-go/internal/config"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
-	"video-summarizer-go/internal/config"
 )
 
 type GDriveOutputProvider struct {
@@ -63,28 +64,51 @@ func NewGDriveOutputProvider(cfg *config.AppConfig) (*GDriveOutputProvider, erro
 	}, nil
 }
 
-func (g *GDriveOutputProvider) UploadSummary(requestID string, videoInfo map[string]interface{}, summaryPath string) error {
+func (g *GDriveOutputProvider) UploadSummary(requestID string, videoInfo map[string]interface{}, summaryPath string, category string, user string) error {
 	title := ""
 	if t, ok := videoInfo["title"].(string); ok {
 		title = t
 	}
-	return g.uploadFileAndCleanup(requestID, title, summaryPath, "summary.txt")
+	return g.uploadFileAndCleanup(requestID, title, summaryPath, "summary.txt", category, user)
 }
 
-func (g *GDriveOutputProvider) UploadTranscript(requestID string, videoInfo map[string]interface{}, transcriptPath string) error {
+func (g *GDriveOutputProvider) UploadTranscript(requestID string, videoInfo map[string]interface{}, transcriptPath string, category string, user string) error {
 	title := ""
 	if t, ok := videoInfo["title"].(string); ok {
 		title = t
 	}
-	return g.uploadFileAndCleanup(requestID, title, transcriptPath, "transcript.txt")
+	return g.uploadFileAndCleanup(requestID, title, transcriptPath, "transcript.txt", category, user)
 }
 
 // uploadFileAndCleanup uploads a file to Google Drive and deletes it after upload
-func (g *GDriveOutputProvider) uploadFileAndCleanup(requestID, title, filePath, suffix string) error {
+func (g *GDriveOutputProvider) uploadFileAndCleanup(requestID, title, filePath, suffix, category, user string) error {
+	// Normalize user (default to "admin" if empty)
+	if user == "" {
+		user = "admin"
+	}
+	// Normalize category (default to "general" if empty)
+	if category == "" {
+		category = "general"
+	}
+	// Create user folder if it doesn't exist
+	userFolderID, err := g.getOrCreateUserFolder(user)
+	if err != nil {
+		return fmt.Errorf("failed to get/create user folder: %w", err)
+	}
+	// Create category folder under user
+	categoryFolderID, err := g.getOrCreateCategoryFolder(category, userFolderID)
+	if err != nil {
+		return fmt.Errorf("failed to get/create category folder: %w", err)
+	}
+	// Create video-specific folder under category
+	videoFolderID, err := g.getOrCreateVideoFolder(requestID, title, categoryFolderID)
+	if err != nil {
+		return fmt.Errorf("failed to get/create video folder: %w", err)
+	}
 	filename := buildOutputFilename(title, requestID, suffix)
 	file := &drive.File{
 		Name:     filename,
-		Parents:  []string{g.folderID},
+		Parents:  []string{videoFolderID}, // Upload to video-specific folder
 		MimeType: "text/plain",
 	}
 	f, err := os.Open(filePath)
@@ -93,7 +117,7 @@ func (g *GDriveOutputProvider) uploadFileAndCleanup(requestID, title, filePath, 
 	}
 	defer f.Close()
 	start := time.Now()
-	fmt.Printf("[GDrive] Uploading %s for request %s...\n", filename, requestID)
+	fmt.Printf("[GDrive] Uploading %s for request %s to user: %s, category: %s...\n", filename, requestID, user, category)
 	_, err = g.driveService.Files.Create(file).Media(f).Do()
 	elapsed := time.Since(start)
 	if err != nil {
@@ -109,6 +133,97 @@ func (g *GDriveOutputProvider) uploadFileAndCleanup(requestID, title, filePath, 
 		return fmt.Errorf("failed to upload %s to Google Drive: %w", filename, err)
 	}
 	return nil
+}
+
+// getOrCreateUserFolder creates a user folder if it doesn't exist, returns existing if it does
+func (g *GDriveOutputProvider) getOrCreateUserFolder(user string) (string, error) {
+	query := fmt.Sprintf("name='%s' and mimeType='application/vnd.google-apps.folder' and '%s' in parents and trashed=false", user, g.folderID)
+	files, err := g.driveService.Files.List().Q(query).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to search for user folder: %w", err)
+	}
+	if len(files.Files) > 0 {
+		fmt.Printf("[GDrive] Found existing user folder: %s (ID: %s)\n", user, files.Files[0].Id)
+		return files.Files[0].Id, nil
+	}
+	folder := &drive.File{
+		Name:     user,
+		MimeType: "application/vnd.google-apps.folder",
+		Parents:  []string{g.folderID},
+	}
+	createdFolder, err := g.driveService.Files.Create(folder).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to create user folder: %w", err)
+	}
+	fmt.Printf("[GDrive] Created new user folder: %s (ID: %s)\n", user, createdFolder.Id)
+	return createdFolder.Id, nil
+}
+
+// getOrCreateCategoryFolder creates a category folder under the user folder
+func (g *GDriveOutputProvider) getOrCreateCategoryFolder(category string, userFolderID string) (string, error) {
+	query := fmt.Sprintf("name='%s' and mimeType='application/vnd.google-apps.folder' and '%s' in parents and trashed=false", category, userFolderID)
+	files, err := g.driveService.Files.List().Q(query).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to search for category folder: %w", err)
+	}
+	if len(files.Files) > 0 {
+		fmt.Printf("[GDrive] Found existing category folder: %s (ID: %s)\n", category, files.Files[0].Id)
+		return files.Files[0].Id, nil
+	}
+	folder := &drive.File{
+		Name:     category,
+		MimeType: "application/vnd.google-apps.folder",
+		Parents:  []string{userFolderID},
+	}
+	createdFolder, err := g.driveService.Files.Create(folder).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to create category folder: %w", err)
+	}
+	fmt.Printf("[GDrive] Created new category folder: %s (ID: %s)\n", category, createdFolder.Id)
+	return createdFolder.Id, nil
+}
+
+// getOrCreateVideoFolder creates a video-specific folder under the category folder
+func (g *GDriveOutputProvider) getOrCreateVideoFolder(requestID, title, categoryFolderID string) (string, error) {
+	// Create folder name from title and request ID
+	folderName := buildVideoFolderName(title, requestID)
+
+	// First, try to find existing video folder
+	query := fmt.Sprintf("name='%s' and mimeType='application/vnd.google-apps.folder' and '%s' in parents and trashed=false", folderName, categoryFolderID)
+	files, err := g.driveService.Files.List().Q(query).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to search for video folder: %w", err)
+	}
+
+	// If folder exists, return its ID
+	if len(files.Files) > 0 {
+		fmt.Printf("[GDrive] Found existing video folder: %s (ID: %s)\n", folderName, files.Files[0].Id)
+		return files.Files[0].Id, nil
+	}
+
+	// Create new video folder
+	folder := &drive.File{
+		Name:     folderName,
+		MimeType: "application/vnd.google-apps.folder",
+		Parents:  []string{categoryFolderID},
+	}
+
+	createdFolder, err := g.driveService.Files.Create(folder).Do()
+	if err != nil {
+		return "", fmt.Errorf("failed to create video folder: %w", err)
+	}
+
+	fmt.Printf("[GDrive] Created new video folder: %s (ID: %s)\n", folderName, createdFolder.Id)
+	return createdFolder.Id, nil
+}
+
+// buildVideoFolderName creates a sanitized folder name for the video
+func buildVideoFolderName(title, requestID string) string {
+	if title != "" {
+		title = sanitizeFilename(title)
+		return fmt.Sprintf("%s_%s", title, requestID)
+	}
+	return fmt.Sprintf("video_%s", requestID)
 }
 
 // getTitleForRequest is a placeholder; in real use, fetch from state store or pass as arg

@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 type InMemoryStateStore struct {
 	requests map[string]*interfaces.ProcessingState
 	events   map[string][]interfaces.Event // keyed by requestID
+	dedup    map[string]string             // dedupKey -> requestID
 	mu       sync.RWMutex
 }
 
@@ -18,7 +20,28 @@ func NewInMemoryStore() *InMemoryStateStore {
 	return &InMemoryStateStore{
 		requests: make(map[string]*interfaces.ProcessingState),
 		events:   make(map[string][]interfaces.Event),
+		dedup:    make(map[string]string),
 	}
+}
+
+// MakeDedupKey creates a unique key for deduplication
+func MakeDedupKey(resource, promptID, model string) string {
+	return fmt.Sprintf("%s|%s|%s", resource, promptID, model)
+}
+
+// GetRequestIDByDedupKey returns the requestID for a dedup key, if any
+func (s *InMemoryStateStore) GetRequestIDByDedupKey(dedupKey string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	id, ok := s.dedup[dedupKey]
+	return id, ok
+}
+
+// AddDedupKey stores a dedup key -> requestID mapping
+func (s *InMemoryStateStore) AddDedupKey(dedupKey, requestID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dedup[dedupKey] = requestID
 }
 
 func (s *InMemoryStateStore) SaveRequestState(requestID string, state *interfaces.ProcessingState) error {
@@ -50,6 +73,8 @@ func (s *InMemoryStateStore) UpdateRequestState(requestID string, updates map[st
 		case "status":
 			if val, ok := v.(interfaces.ProcessingStatus); ok {
 				state.Status = val
+			} else if val, ok := v.(string); ok {
+				state.Status = interfaces.ProcessingStatus(val)
 			}
 		case "video_info":
 			if val, ok := v.(map[string]interface{}); ok {
@@ -71,10 +96,6 @@ func (s *InMemoryStateStore) UpdateRequestState(requestID string, updates map[st
 			if val, ok := v.(string); ok {
 				state.Error = val
 			}
-		case "metadata":
-			if val, ok := v.(map[string]interface{}); ok {
-				state.Metadata = val
-			}
 		case "output_path":
 			if val, ok := v.(string); ok {
 				state.OutputPath = val
@@ -82,6 +103,22 @@ func (s *InMemoryStateStore) UpdateRequestState(requestID string, updates map[st
 		case "completed_at":
 			if val, ok := v.(time.Time); ok {
 				state.CompletedAt = &val
+			}
+		case "source_type":
+			if val, ok := v.(string); ok {
+				state.SourceType = val
+			}
+		case "url":
+			if val, ok := v.(string); ok {
+				state.URL = val
+			}
+		case "document_info":
+			if val, ok := v.(map[string]interface{}); ok {
+				state.DocumentInfo = val
+			}
+		case "text_path":
+			if val, ok := v.(string); ok {
+				state.TextPath = val
 			}
 		}
 	}
@@ -149,4 +186,19 @@ func (s *InMemoryStateStore) GetRequestCountsByStatus() map[string]int {
 		counts[status]++
 	}
 	return counts
+}
+
+func (s *InMemoryStateStore) CreateOrGetDedupRequest(dedupKey string, state *interfaces.ProcessingState) (string, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if reqID, ok := s.dedup[dedupKey]; ok {
+		existing := s.requests[reqID]
+		if existing != nil && existing.Status != interfaces.StatusFailed {
+			return reqID, true, nil
+		}
+		// If failed, allow a new request (replace mapping)
+	}
+	s.requests[state.RequestID] = state
+	s.dedup[dedupKey] = state.RequestID
+	return state.RequestID, false, nil
 }

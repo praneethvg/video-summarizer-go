@@ -1,11 +1,15 @@
 package core
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
+	"video-summarizer-go/internal/config"
+	"video-summarizer-go/internal/core/tasks"
 	"video-summarizer-go/internal/interfaces"
 )
 
@@ -20,6 +24,8 @@ type ProcessingEngine struct {
 	transcriptionProvider interfaces.TranscriptionProvider
 	summarizationProvider interfaces.SummarizationProvider
 	outputProvider        interfaces.OutputProvider
+	promptManager         *config.PromptManager
+	taskProcessorRegistry *tasks.TaskProcessorRegistry
 
 	mu sync.Mutex
 }
@@ -34,6 +40,7 @@ func NewProcessingEngine(
 	transcriptionProvider interfaces.TranscriptionProvider,
 	summarizationProvider interfaces.SummarizationProvider,
 	outputProvider interfaces.OutputProvider,
+	promptManager *config.PromptManager,
 ) *ProcessingEngine {
 	engine := &ProcessingEngine{
 		store:                 store,
@@ -45,6 +52,8 @@ func NewProcessingEngine(
 		transcriptionProvider: transcriptionProvider,
 		summarizationProvider: summarizationProvider,
 		outputProvider:        outputProvider,
+		promptManager:         promptManager,
+		taskProcessorRegistry: tasks.NewTaskProcessorRegistry(),
 	}
 	engine.registerEventHandlers()
 	return engine
@@ -56,18 +65,25 @@ func (e *ProcessingEngine) registerEventHandlers() {
 	e.eventBus.Subscribe("AudioDownloaded", e.onAudioDownloaded)
 	e.eventBus.Subscribe("TranscriptionCompleted", e.onTranscriptionCompleted)
 	e.eventBus.Subscribe("SummarizationCompleted", e.onSummarizationCompleted)
+	e.eventBus.Subscribe("OutputCompleted", e.onOutputCompleted)
 }
 
 // Entry point: create a new request and emit VideoProcessingRequested
-func (e *ProcessingEngine) StartRequest(requestID, url string) error {
+func (e *ProcessingEngine) StartRequest(requestID, url string, prompt interfaces.Prompt, sourceType string, category string, maxTokens int) error {
+	log.Debugf("[Engine] StartRequest called for requestID: %s, url: %s, sourceType: %s, category: %s", requestID, url, sourceType, category)
 	state := &interfaces.ProcessingState{
-		RequestID: requestID,
-		Status:    interfaces.StatusPending,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Metadata:  map[string]interface{}{"url": url},
+		RequestID:  requestID,
+		Status:     interfaces.StatusPending,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+		SourceType: sourceType,
+		URL:        url,
+		Prompt:     prompt,
+		MaxTokens:  maxTokens,
+		// Add category as a top-level field if you want, or handle it elsewhere
 	}
 	e.store.SaveRequestState(requestID, state)
+	log.Debugf("[Engine] Publishing VideoProcessingRequested event for requestID: %s", requestID)
 	e.eventBus.Publish(interfaces.Event{
 		ID:        fmt.Sprintf("evt-%s-%d", requestID, time.Now().UnixNano()),
 		RequestID: requestID,
@@ -134,8 +150,55 @@ func (e *ProcessingEngine) Stop() {
 	e.workerPool.Stop()
 }
 
+// GetVideoProvider returns the video provider
+func (e *ProcessingEngine) GetVideoProvider() interfaces.VideoProvider {
+	return e.videoProvider
+}
+
+// GetTranscriptionProvider returns the transcription provider
+func (e *ProcessingEngine) GetTranscriptionProvider() interfaces.TranscriptionProvider {
+	return e.transcriptionProvider
+}
+
+// GetSummarizationProvider returns the summarization provider
+func (e *ProcessingEngine) GetSummarizationProvider() interfaces.SummarizationProvider {
+	return e.summarizationProvider
+}
+
+// GetOutputProvider returns the output provider
+func (e *ProcessingEngine) GetOutputProvider() interfaces.OutputProvider {
+	return e.outputProvider
+}
+
+// GetPromptManager returns the prompt manager
+func (e *ProcessingEngine) GetPromptManager() *config.PromptManager {
+	return e.promptManager
+}
+
+// GetStore returns the state store
+func (e *ProcessingEngine) GetStore() interfaces.StateStore {
+	return e.store
+}
+
+// GetEventBus returns the event bus
+func (e *ProcessingEngine) GetEventBus() interfaces.EventBus {
+	return e.eventBus
+}
+
+// GetTaskQueue returns the task queue
+func (e *ProcessingEngine) GetTaskQueue() interfaces.TaskQueue {
+	return e.taskQueue
+}
+
 func (e *ProcessingEngine) onVideoProcessingRequested(event interfaces.Event) {
-	url := event.Data["url"].(string)
+	log.Debugf("[Engine] Received VideoProcessingRequested event for request: %s", event.RequestID)
+	state, err := e.store.GetRequestState(event.RequestID)
+	if err != nil {
+		log.Errorf("Could not get state for request: %s", event.RequestID)
+		return
+	}
+	url := state.URL
+	log.Debugf("[Engine] Enqueueing video info task for request: %s, URL: %s", event.RequestID, url)
 	e.taskQueue.Enqueue(&interfaces.Task{
 		ID:        fmt.Sprintf("task-%s-video-%d", event.RequestID, time.Now().UnixNano()),
 		Type:      interfaces.TaskVideoInfo,
@@ -149,21 +212,32 @@ func (e *ProcessingEngine) onVideoProcessingRequested(event interfaces.Event) {
 }
 
 func (e *ProcessingEngine) onVideoInfoFetched(event interfaces.Event) {
-	videoInfo := event.Data
+	state, err := e.store.GetRequestState(event.RequestID)
+	if err != nil {
+		log.Errorf("Could not get state for request: %s", event.RequestID)
+		return
+	}
+	url := state.URL
 	e.taskQueue.Enqueue(&interfaces.Task{
 		ID:        fmt.Sprintf("task-%s-audio-%d", event.RequestID, time.Now().UnixNano()),
 		Type:      interfaces.TaskAudioDownload,
 		RequestID: event.RequestID,
-		Data:      videoInfo,
+		Data:      map[string]interface{}{"url": url},
 		CreatedAt: time.Now(),
 	})
-	e.store.UpdateRequestState(event.RequestID, map[string]interface{}{
-		"video_info": videoInfo,
-	})
+	// Optionally update video_info if needed
 }
 
 func (e *ProcessingEngine) onAudioDownloaded(event interfaces.Event) {
-	audioPath := event.Data["audio_path"].(string)
+	state, err := e.store.GetRequestState(event.RequestID)
+	if err != nil {
+		log.Errorf("Could not get state for request: %s", event.RequestID)
+		return
+	}
+	audioPath := state.AudioPath
+	if audioPath == "" {
+		audioPath = event.Data["audio_path"].(string)
+	}
 	e.taskQueue.Enqueue(&interfaces.Task{
 		ID:        fmt.Sprintf("task-%s-transcribe-%d", event.RequestID, time.Now().UnixNano()),
 		Type:      interfaces.TaskTranscription,
@@ -171,13 +245,18 @@ func (e *ProcessingEngine) onAudioDownloaded(event interfaces.Event) {
 		Data:      map[string]interface{}{"audio_path": audioPath},
 		CreatedAt: time.Now(),
 	})
-	e.store.UpdateRequestState(event.RequestID, map[string]interface{}{
-		"audio_path": audioPath,
-	})
 }
 
 func (e *ProcessingEngine) onTranscriptionCompleted(event interfaces.Event) {
-	transcriptPath := event.Data["transcript"].(string)
+	state, err := e.store.GetRequestState(event.RequestID)
+	if err != nil {
+		log.Errorf("Could not get state for request: %s", event.RequestID)
+		return
+	}
+	transcriptPath := state.Transcript
+	if transcriptPath == "" {
+		transcriptPath = event.Data["transcript"].(string)
+	}
 	e.taskQueue.Enqueue(&interfaces.Task{
 		ID:        fmt.Sprintf("task-%s-summarize-%d", event.RequestID, time.Now().UnixNano()),
 		Type:      interfaces.TaskSummarization,
@@ -185,13 +264,19 @@ func (e *ProcessingEngine) onTranscriptionCompleted(event interfaces.Event) {
 		Data:      map[string]interface{}{"transcript_path": transcriptPath},
 		CreatedAt: time.Now(),
 	})
-	e.store.UpdateRequestState(event.RequestID, map[string]interface{}{
-		"transcript": transcriptPath,
-	})
 }
 
 func (e *ProcessingEngine) onSummarizationCompleted(event interfaces.Event) {
-	summaryPath := event.Data["summary"].(string)
+	state, err := e.store.GetRequestState(event.RequestID)
+	if err != nil {
+		log.Errorf("Could not get state for request: %s", event.RequestID)
+		return
+	}
+	summaryPath := state.Summary
+	if summaryPath == "" {
+		summaryPath = event.Data["summary"].(string)
+	}
+	log.Debugf("onSummarizationCompleted called for request: %s, summaryPath: %v", event.RequestID, summaryPath)
 	e.taskQueue.Enqueue(&interfaces.Task{
 		ID:        fmt.Sprintf("task-%s-output-%d", event.RequestID, time.Now().UnixNano()),
 		Type:      interfaces.TaskOutput,
@@ -199,166 +284,31 @@ func (e *ProcessingEngine) onSummarizationCompleted(event interfaces.Event) {
 		Data:      map[string]interface{}{"summary_path": summaryPath},
 		CreatedAt: time.Now(),
 	})
-	e.store.UpdateRequestState(event.RequestID, map[string]interface{}{
-		"summary": summaryPath,
+}
+
+func (e *ProcessingEngine) onOutputCompleted(event interfaces.Event) {
+	fmt.Printf("[Engine][DEBUG] onOutputCompleted called for request: %s\n", event.RequestID)
+	e.taskQueue.Enqueue(&interfaces.Task{
+		ID:        fmt.Sprintf("task-%s-cleanup-%d", event.RequestID, time.Now().UnixNano()),
+		Type:      interfaces.TaskCleanup,
+		RequestID: event.RequestID,
+		Data:      map[string]interface{}{},
+		CreatedAt: time.Now(),
 	})
 }
 
 // Worker processing logic (real plugins where available)
 func (e *ProcessingEngine) WorkerProcess(task *interfaces.Task) {
 	fmt.Printf("[Engine] WorkerProcess called for task: %s, request: %s\n", task.Type, task.RequestID)
-	switch task.Type {
-	case interfaces.TaskVideoInfo:
-		fmt.Printf("[Engine] Processing TaskVideoInfo for request: %s\n", task.RequestID)
-		// Use real video provider
-		url := task.Data.(map[string]interface{})["url"].(string)
-		videoInfo, err := e.videoProvider.GetVideoInfo(url)
-		if err != nil {
-			e.store.UpdateRequestState(task.RequestID, map[string]interface{}{
-				"status": interfaces.StatusFailed,
-				"error":  fmt.Sprintf("Failed to get video info: %v", err),
-			})
-			return
+
+	// Use task processor
+	if processor, exists := e.taskProcessorRegistry.GetProcessor(task.Type); exists {
+		if err := processor.Process(context.Background(), task, e); err != nil {
+			fmt.Printf("[Engine][ERROR] Task processor failed for %s: %v\n", task.Type, err)
 		}
-
-		audioPath, err := e.videoProvider.DownloadAudio(url)
-		if err != nil {
-			e.store.UpdateRequestState(task.RequestID, map[string]interface{}{
-				"status": interfaces.StatusFailed,
-				"error":  fmt.Sprintf("Failed to download audio: %v", err),
-			})
-			return
-		}
-
-		// Publish video info event
-		e.eventBus.Publish(interfaces.Event{
-			ID:        fmt.Sprintf("evt-%s-videoinfo-%d", task.RequestID, time.Now().UnixNano()),
-			RequestID: task.RequestID,
-			Type:      "VideoInfoFetched",
-			Data:      videoInfo,
-			Timestamp: time.Now(),
-		})
-
-		// Publish audio downloaded event
-		e.eventBus.Publish(interfaces.Event{
-			ID:        fmt.Sprintf("evt-%s-audio-%d", task.RequestID, time.Now().UnixNano()),
-			RequestID: task.RequestID,
-			Type:      "AudioDownloaded",
-			Data:      map[string]interface{}{"audio_path": audioPath},
-			Timestamp: time.Now(),
-		})
-
-	case interfaces.TaskAudioDownload:
-		fmt.Printf("[Engine] Processing TaskAudioDownload for request: %s\n", task.RequestID)
-		// This step is now handled in TaskVideoInfo, so this should not be reached
-		// Keep for backward compatibility but log a warning
-		fmt.Printf("Warning: TaskAudioDownload received but audio download is now handled in TaskVideoInfo\n")
-
-	case interfaces.TaskTranscription:
-		fmt.Printf("[Engine] Processing TaskTranscription for request: %s\n", task.RequestID)
-		// Use real transcription provider
-		audioPath := task.Data.(map[string]interface{})["audio_path"].(string)
-		transcriptPath, err := e.transcriptionProvider.TranscribeAudio(audioPath)
-		if err != nil {
-			e.store.UpdateRequestState(task.RequestID, map[string]interface{}{
-				"status": interfaces.StatusFailed,
-				"error":  fmt.Sprintf("Failed to transcribe audio: %v", err),
-			})
-			return
-		}
-		e.eventBus.Publish(interfaces.Event{
-			ID:        fmt.Sprintf("evt-%s-transcript-%d", task.RequestID, time.Now().UnixNano()),
-			RequestID: task.RequestID,
-			Type:      "TranscriptionCompleted",
-			Data:      map[string]interface{}{"transcript": transcriptPath},
-			Timestamp: time.Now(),
-		})
-
-	case interfaces.TaskSummarization:
-		fmt.Printf("[Engine] Processing TaskSummarization for request: %s\n", task.RequestID)
-		// Use real summarization provider
-		transcriptPath := task.Data.(map[string]interface{})["transcript_path"].(string)
-		transcriptBytes, err := os.ReadFile(transcriptPath)
-		if err != nil {
-			e.store.UpdateRequestState(task.RequestID, map[string]interface{}{
-				"status": interfaces.StatusFailed,
-				"error":  fmt.Sprintf("Failed to read transcript file: %v", err),
-			})
-			return
-		}
-
-		// Get prompt from request metadata
-		state, err := e.store.GetRequestState(task.RequestID)
-		if err != nil {
-			e.store.UpdateRequestState(task.RequestID, map[string]interface{}{
-				"status": interfaces.StatusFailed,
-				"error":  fmt.Sprintf("Failed to get request state: %v", err),
-			})
-			return
-		}
-
-		prompt := "general" // default prompt
-		if state.Metadata != nil {
-			if promptVal, ok := state.Metadata["prompt"].(string); ok && promptVal != "" {
-				prompt = promptVal
-			}
-		}
-
-		summaryPath, err := e.summarizationProvider.SummarizeText(string(transcriptBytes), prompt)
-		if err != nil {
-			e.store.UpdateRequestState(task.RequestID, map[string]interface{}{
-				"status": interfaces.StatusFailed,
-				"error":  fmt.Sprintf("Failed to summarize text: %v", err),
-			})
-			return
-		}
-		e.eventBus.Publish(interfaces.Event{
-			ID:        fmt.Sprintf("evt-%s-summary-%d", task.RequestID, time.Now().UnixNano()),
-			RequestID: task.RequestID,
-			Type:      "SummarizationCompleted",
-			Data:      map[string]interface{}{"summary": summaryPath},
-			Timestamp: time.Now(),
-		})
-
-	case interfaces.TaskOutput:
-		fmt.Printf("[Engine] Processing TaskOutput for request: %s\n", task.RequestID)
-		// Upload summary and/or transcript if outputProvider is set
-		if e.outputProvider != nil {
-			state, _ := e.store.GetRequestState(task.RequestID)
-			if state != nil {
-				videoInfo := state.VideoInfo
-				if state.Summary != "" && videoInfo != nil {
-					err := e.outputProvider.UploadSummary(task.RequestID, videoInfo, state.Summary)
-					if err != nil {
-						fmt.Println("GDrive upload summary error:", err)
-					}
-				}
-				if state.Transcript != "" && videoInfo != nil {
-					err := e.outputProvider.UploadTranscript(task.RequestID, videoInfo, state.Transcript)
-					if err != nil {
-						fmt.Println("GDrive upload transcript error:", err)
-					}
-				}
-			}
-		}
-		// Mock: pretend to generate output
-		summaryPath := task.Data.(map[string]interface{})["summary_path"].(string)
-		outputPath := fmt.Sprintf("/tmp/output-%s.txt", task.RequestID)
-		// In a real implementation, you would write the summary to a file
-		// or generate some other output format
-
-		e.store.UpdateRequestState(task.RequestID, map[string]interface{}{
-			"status":       interfaces.StatusCompleted,
-			"output_path":  outputPath,
-			"completed_at": time.Now(),
-		})
-
-		e.eventBus.Publish(interfaces.Event{
-			ID:        fmt.Sprintf("evt-%s-completed-%d", task.RequestID, time.Now().UnixNano()),
-			RequestID: task.RequestID,
-			Type:      "ProcessingCompleted",
-			Data:      map[string]interface{}{"output_path": outputPath, "summary": summaryPath},
-			Timestamp: time.Now(),
-		})
+		return
 	}
+
+	// Fallback for unknown task types
+	fmt.Printf("[Engine][ERROR] No processor found for task type: %s\n", task.Type)
 }

@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"video-summarizer-go/internal/core"
 	"video-summarizer-go/internal/interfaces"
 )
@@ -24,38 +26,63 @@ func NewVideoSubmissionService(engine *core.ProcessingEngine) *VideoSubmissionSe
 }
 
 // SubmitVideo submits a single video for processing
-func (s *VideoSubmissionService) SubmitVideo(url string, prompt string, metadata map[string]interface{}) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *VideoSubmissionService) SubmitVideo(url string, prompt interfaces.Prompt, sourceType string, category string, maxTokens int) (string, error) {
+	model := "gpt-4o" // TODO: Make this configurable or pass as argument
+	dedupKey := core.MakeDedupKey(url, prompt.Prompt, model)
 
-	// Generate unique request ID
+	// Prepare the state for possible creation
 	requestID := fmt.Sprintf("req-%d", time.Now().UnixNano())
-
-	// Add metadata to the request
-	if metadata == nil {
-		metadata = make(map[string]interface{})
+	state := &interfaces.ProcessingState{
+		RequestID:  requestID,
+		Status:     interfaces.StatusPending,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+		SourceType: sourceType,
+		URL:        url,
+		Prompt:     prompt,
+		MaxTokens:  maxTokens,
+		Category:   category,
 	}
-	metadata["url"] = url
-	metadata["prompt"] = prompt
-	metadata["submitted_at"] = time.Now()
-	metadata["source"] = "api" // or "background" depending on caller
 
-	// Start the processing request
-	err := s.engine.StartRequest(requestID, url)
+	// Use the store's deduplication method
+	id, alreadyExists, err := s.engine.GetStore().CreateOrGetDedupRequest(dedupKey, state)
+	if err != nil {
+		return "", fmt.Errorf("failed to create or get dedup request: %w", err)
+	}
+	if alreadyExists {
+		log.WithFields(log.Fields{
+			"dedupKey":  dedupKey,
+			"requestID": id,
+		}).Info("Deduplication hit")
+		return id, nil
+	}
+
+	// Start the request (stores state and publishes event)
+	err = s.engine.StartRequest(state.RequestID, state.URL, state.Prompt, state.SourceType, category, state.MaxTokens)
 	if err != nil {
 		return "", fmt.Errorf("failed to start request: %w", err)
 	}
 
-	return requestID, nil
+	log.WithFields(log.Fields{
+		"url":        url,
+		"prompt":     prompt.Prompt,
+		"promptType": prompt.Type,
+		"sourceType": sourceType,
+		"category":   category,
+		"maxTokens":  maxTokens,
+	}).Info("SubmitVideo created new request")
+	return state.RequestID, nil
 }
 
 // SubmitBatch submits multiple videos for processing
-func (s *VideoSubmissionService) SubmitBatch(urls []string, prompt string, metadata map[string]interface{}) ([]string, error) {
+func (s *VideoSubmissionService) SubmitBatch(urls []string, prompt interfaces.Prompt, sourceType, category string, maxTokens int) ([]string, error) {
+	log.WithField("prompt", prompt).Info("SubmitBatch called")
 	var requestIDs []string
 	var errors []error
 
 	for _, url := range urls {
-		requestID, err := s.SubmitVideo(url, prompt, metadata)
+		log.WithField("url", url).WithField("prompt", prompt).Info("Submitting url")
+		requestID, err := s.SubmitVideo(url, prompt, sourceType, category, maxTokens)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("failed to submit %s: %w", url, err))
 			continue

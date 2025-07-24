@@ -1,6 +1,7 @@
 package summarization
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -33,7 +34,7 @@ func (p *TextSummarizationProvider) SetPromptManager(pm *config.PromptManager) {
 }
 
 // SummarizeText generates a summary based on the provided text and prompt
-func (p *TextSummarizationProvider) SummarizeText(text string, prompt string) (string, error) {
+func (p *TextSummarizationProvider) SummarizeText(ctx context.Context, text string, prompt string, maxTokens int) (string, error) {
 	if text == "" {
 		return "No content to summarize.", nil
 	}

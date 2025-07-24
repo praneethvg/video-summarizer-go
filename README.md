@@ -209,3 +209,46 @@ content: You are an expert at summarizing technical tutorials. Focus on key conc
 - **API**: Include `"prompt": "prompt_id"` in your submit request
 - **CLI**: Use `--prompt prompt_id` flag
 - **Custom**: Pass direct prompt content instead of an ID
+
+## API Usage
+
+### Submit a Video for Processing
+
+```bash
+curl -X POST http://localhost:8080/api/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://www.youtube.com/watch?v=example",
+    "prompt": "market_report",
+    "category": "finance",
+    "metadata": {
+      "priority": "high"
+    }
+  }'
+```
+
+**Request Fields:**
+- `url` (required): YouTube URL to process
+- `prompt` (optional): Prompt ID or direct prompt content (default: "general")
+- `category` (optional): Category for folder organization (default: "general")
+- `metadata` (optional): Additional metadata for the request
+
+**Note:** The user is always set to `admin` by the backend for now. In the future, this will be set by authentication logic.
+
+**User/Category-based Folder Organization:**
+The system now organizes uploads into user/category-based folders:
+```
+Google Drive Root/
+└── admin/
+    ├── finance/
+    │   └── Market_Analysis_2024_req-1234567890/
+    │       ├── Market_Analysis_2024_req-1234567890_summary.txt
+    │       └── Market_Analysis_2024_req-1234567890_transcript.txt
+    ├── tech/
+    └── general/
+        └── Educational_Video_req-1234567893/
+            ├── Educational_Video_req-1234567893_summary.txt
+            └── Educational_Video_req-1234567893_transcript.txt
+```
+
+This structure is designed to be flexible for future user-based organization while maintaining clear categorization.

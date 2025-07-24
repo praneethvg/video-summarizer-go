@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -31,6 +32,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize prompt manager
+	promptManager := config.NewPromptManager()
+	promptsDir := cfg.PromptsDir
+	if promptsDir == "" {
+		promptsDir = "prompts"
+	}
+	if err := promptManager.LoadPrompts(promptsDir); err != nil {
+		fmt.Printf("Failed to load prompts: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Set prompt manager on the provider
+	if openaiProvider, ok := provider.(*summarization.OpenAISummarizationProvider); ok {
+		openaiProvider.SetPromptManager(promptManager)
+	} else if textProvider, ok := provider.(*summarization.TextSummarizationProvider); ok {
+		textProvider.SetPromptManager(promptManager)
+	}
+
 	if *listPrompts {
 		fmt.Println("Available prompts:")
 		for _, prompt := range provider.GetAvailablePrompts() {
@@ -56,7 +75,7 @@ func main() {
 
 	fmt.Printf("\nGenerating summary with prompt: '%s'\n", *prompt)
 	fmt.Println(strings.Repeat("=", 50))
-	summary, err := provider.SummarizeText(inputText, *prompt)
+	summary, err := provider.SummarizeText(context.Background(), inputText, *prompt, 10000)
 	if err != nil {
 		fmt.Println("Summarization error:", err)
 		os.Exit(1)
