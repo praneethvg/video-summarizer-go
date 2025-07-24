@@ -14,7 +14,7 @@ import (
 	"video-summarizer-go/internal/services"
 )
 
-// SearchQuerySource implements VideoSource for YouTube search queries
+// SearchQuerySource implements ArtifactSource for YouTube search queries
 type SearchQuerySource struct {
 	name                  string
 	queries               []string

@@ -2,7 +2,6 @@ package sources
 
 import (
 	"fmt"
-	"time"
 
 	"video-summarizer-go/internal/config"
 	"video-summarizer-go/internal/services"
@@ -21,42 +20,30 @@ func NewSourceFactory(submissionService *services.VideoSubmissionService) *Sourc
 }
 
 // CreateSource creates a video source based on the source configuration
-func (f *SourceFactory) CreateSource(sourceConfig *config.SourceConfig, ytDlpPath string) (VideoSource, error) {
+func (f *SourceFactory) CreateSource(sourceConfig *config.SourceConfig, appCfg *config.AppConfig) (ArtifactSource, error) {
 	if !sourceConfig.Enabled {
 		return nil, fmt.Errorf("source %s is disabled", sourceConfig.Name)
 	}
 
-	interval, err := sourceConfig.GetIntervalDuration()
+	_, err := sourceConfig.GetIntervalDuration()
 	if err != nil {
 		return nil, fmt.Errorf("invalid interval for source %s: %w", sourceConfig.Name, err)
 	}
 
-	// Set default prompt if not specified
-	promptID := sourceConfig.PromptID
-	if promptID == "" {
-		promptID = "general"
-	}
-
-	// Create metadata for this source
-	metadata := map[string]interface{}{
-		"auto_discovered": true,
-		"source_name":     sourceConfig.Name,
-		"source_type":     sourceConfig.Type,
-		"prompt":          promptID,
+	if sourceConfig.PromptID == "" {
+		sourceConfig.PromptID = "general"
 	}
 
 	switch sourceConfig.Type {
 	case "youtube_search":
-		return f.createYouTubeSearchSource(sourceConfig, interval, ytDlpPath)
-	case "rss_feed":
-		return f.createRSSFeedSource(sourceConfig, interval, metadata)
+		return f.createYouTubeSearchSource(sourceConfig, appCfg)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceConfig.Type)
 	}
 }
 
 // createYouTubeSearchSource creates a YouTube search source
-func (f *SourceFactory) createYouTubeSearchSource(sourceConfig *config.SourceConfig, interval time.Duration, ytDlpPath string) (VideoSource, error) {
+func (f *SourceFactory) createYouTubeSearchSource(sourceConfig *config.SourceConfig, appCfg *config.AppConfig) (ArtifactSource, error) {
 	queries, err := sourceConfig.GetQueries()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queries for source %s: %w", sourceConfig.Name, err)
@@ -72,37 +59,33 @@ func (f *SourceFactory) createYouTubeSearchSource(sourceConfig *config.SourceCon
 		channel = ch
 	}
 
-	// Set default channel videos lookback if not specified
-	channelVideosLookback := sourceConfig.ChannelVideosLookback
-	if channelVideosLookback == 0 {
-		channelVideosLookback = 50 // Default to scanning 50 videos
+	// Read max_videos_per_run and channel_videos_lookback from config map with defaults
+	maxVideosPerRun := 1
+	if val, ok := sourceConfig.Config["max_videos_per_run"]; ok {
+		maxVideosPerRun = val.(int)
+	}
+
+	channelVideosLookback := 50
+	if val, ok := sourceConfig.Config["channel_videos_lookback"]; ok {
+		channelVideosLookback = val.(int)
 	}
 
 	category := "general"
 	if sourceConfig.Category != "" {
 		category = sourceConfig.Category
 	}
+
+	interval, _ := sourceConfig.GetIntervalDuration()
 	return NewSearchQuerySource(
 		sourceConfig.Name,
 		queries,
 		channel,
 		interval,
-		sourceConfig.MaxVideosPerRun,
+		maxVideosPerRun,
 		channelVideosLookback,
-		ytDlpPath,
+		appCfg.YtDlpPath,
 		f.submissionService,
 		category,
 		sourceConfig.PromptID,
 	), nil
-}
-
-// createRSSFeedSource creates an RSS feed source (placeholder for future implementation)
-func (f *SourceFactory) createRSSFeedSource(sourceConfig *config.SourceConfig, interval time.Duration, metadata map[string]interface{}) (VideoSource, error) {
-	feedURL, err := sourceConfig.GetFeedURL()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get feed URL for source %s: %w", sourceConfig.Name, err)
-	}
-
-	// TODO: Implement RSS feed source
-	return nil, fmt.Errorf("RSS feed source not yet implemented for source %s (feed: %s)", sourceConfig.Name, feedURL)
 }

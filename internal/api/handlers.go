@@ -16,11 +16,11 @@ import (
 type APIHandler struct {
 	submissionService *services.VideoSubmissionService
 	promptManager     *config.PromptManager
-	sourceManager     *sources.VideoSourceManager
+	sourceManager     *sources.ArtifactSourceManager
 }
 
 // NewAPIHandler creates a new API handler
-func NewAPIHandler(submissionService *services.VideoSubmissionService, promptManager *config.PromptManager, sourceManager *sources.VideoSourceManager) *APIHandler {
+func NewAPIHandler(submissionService *services.VideoSubmissionService, promptManager *config.PromptManager, sourceManager *sources.ArtifactSourceManager) *APIHandler {
 	return &APIHandler{
 		submissionService: submissionService,
 		promptManager:     promptManager,

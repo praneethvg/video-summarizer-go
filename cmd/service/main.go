@@ -50,7 +50,7 @@ func main() {
 	submissionService := services.NewVideoSubmissionService(engine)
 
 	// Initialize video source manager
-	sourceManager := sources.NewVideoSourceManager()
+	sourceManager := sources.NewArtifactSourceManager()
 
 	// Initialize API handler
 	apiHandler := api.NewAPIHandler(submissionService, promptManager, sourceManager)
@@ -73,23 +73,19 @@ func main() {
 			continue
 		}
 
-		source, err := sourceFactory.CreateSource(&sourceConfig, appCfg.YtDlpPath)
-		if err != nil {
-			log.Errorf("Failed to create source %s: %v", sourceConfig.Name, err)
-			continue
-		}
-
-		interval, err := sourceConfig.GetIntervalDuration()
+		_, err := sourceConfig.GetIntervalDuration()
 		if err != nil {
 			log.Errorf("Invalid interval for source %s: %v", sourceConfig.Name, err)
 			continue
 		}
 
-		sourceManager.AddSource(sourceConfig.Name, source, sources.VideoSourceConfig{
-			Enabled:   sourceConfig.Enabled,
-			Interval:  interval,
-			MaxVideos: sourceConfig.MaxVideosPerRun,
-		})
+		source, err := sourceFactory.CreateSource(&sourceConfig, appCfg)
+		if err != nil {
+			log.Errorf("Failed to create source %s: %v", sourceConfig.Name, err)
+			continue
+		}
+
+		sourceManager.AddSource(sourceConfig.Name, source, &sourceConfig)
 
 		log.Infof("Added source: %s (type: %s, interval: %s)", sourceConfig.Name, sourceConfig.Type, sourceConfig.Interval)
 	}

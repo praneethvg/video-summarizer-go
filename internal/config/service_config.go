@@ -29,15 +29,13 @@ type BackgroundSourcesConfig struct {
 
 // SourceConfig represents a single background video source configuration
 type SourceConfig struct {
-	Name                  string                 `yaml:"name"`
-	Type                  string                 `yaml:"type"`
-	Enabled               bool                   `yaml:"enabled"`
-	Interval              string                 `yaml:"interval"`
-	MaxVideosPerRun       int                    `yaml:"max_videos_per_run"`
-	ChannelVideosLookback int                    `yaml:"channel_videos_lookback"` // How many videos to scan when searching within a channel
-	PromptID              string                 `yaml:"prompt_id"`
-	Category              string                 `yaml:"category"`
-	Config                map[string]interface{} `yaml:"config"`
+	Name     string                 `yaml:"name"`
+	Type     string                 `yaml:"type"`
+	Enabled  bool                   `yaml:"enabled"`
+	Interval string                 `yaml:"interval"`
+	PromptID string                 `yaml:"prompt_id"`
+	Category string                 `yaml:"category"`
+	Config   map[string]interface{} `yaml:"config"`
 }
 
 // LoadServiceConfig loads the service configuration from a file
@@ -121,4 +119,34 @@ func (c *SourceConfig) GetFeedURL() (string, error) {
 	}
 
 	return feedURL, nil
+}
+
+// GetMaxVideosPerRun returns max_videos_per_run from config or default 1
+func (c *SourceConfig) GetMaxVideosPerRun() int {
+	if val, ok := c.Config["max_videos_per_run"]; ok {
+		switch v := val.(type) {
+		case int:
+			return v
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
+		}
+	}
+	return 1
+}
+
+// GetChannelVideosLookback returns channel_videos_lookback from config or default 50
+func (c *SourceConfig) GetChannelVideosLookback() int {
+	if val, ok := c.Config["channel_videos_lookback"]; ok {
+		switch v := val.(type) {
+		case int:
+			return v
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
+		}
+	}
+	return 50
 }
