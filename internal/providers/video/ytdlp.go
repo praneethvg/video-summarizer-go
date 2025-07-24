@@ -25,7 +25,7 @@ func NewYtDlpVideoProvider(ytDlpPath, tmpDir string) *YtDlpVideoProvider {
 
 // GetVideoInfo fetches video info as a map using yt-dlp --dump-json
 func (p *YtDlpVideoProvider) GetVideoInfo(url string) (map[string]interface{}, error) {
-	cmd := exec.Command(p.YtDlpPath, "--dump-json", url)
+	cmd := exec.Command(p.YtDlpPath, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "--dump-json", url)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
@@ -43,7 +43,7 @@ func (p *YtDlpVideoProvider) GetVideoInfo(url string) (map[string]interface{}, e
 func (p *YtDlpVideoProvider) DownloadAudio(url string) (string, error) {
 	filename := fmt.Sprintf("audio-%d.mp3", time.Now().UnixNano())
 	outPath := filepath.Join(p.TmpDir, filename)
-	cmd := exec.Command(p.YtDlpPath, "-x", "--audio-format", "mp3", "-o", outPath, url)
+	cmd := exec.Command(p.YtDlpPath, "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "-x", "--audio-format", "mp3", "-o", outPath, url)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out

@@ -126,10 +126,6 @@ func (g *GDriveOutputProvider) uploadFileAndCleanup(requestID, title, filePath, 
 	} else {
 		log.Infof("Uploaded %s for request %s in %.2fs", filename, requestID, elapsed.Seconds())
 	}
-	// Cleanup file after upload
-	if rmErr := os.Remove(filePath); rmErr != nil {
-		log.Warnf("WARNING: failed to remove temp file %s: %v", filePath, rmErr)
-	}
 	if err != nil {
 		return fmt.Errorf("failed to upload %s to Google Drive: %w", filename, err)
 	}
