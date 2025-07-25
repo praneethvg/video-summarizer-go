@@ -1,0 +1,48 @@
+# Binaries
+bin/
+tools/
+models/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Output of build tools
+build/
+
+# Ignore whisper.cpp (downloaded by setup script)
+whisper.cpp/
+
+# Go build cache
+*.out
+
+# VCS
+.git
+.gitignore
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+
+# Config templates
+config.yaml.template
+service.yaml.template
+
+#Configs
+config.yaml
+service.yaml
+
+# Secrets
+*credentials.json
+*token.json
+*secret.json
+
+# Test and docs
+*.md
+docs/
+**/*_test.go 

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+go mod download
+
 mkdir -p bin
 
 for d in ./cmd/*; do

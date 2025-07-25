@@ -9,7 +9,7 @@ summarizer_provider: openai
 # Your OpenAI API key (required for openai summarizer)
 openai_api_key: "sk-..."
 # OpenAI model to use (e.g., gpt-3.5-turbo, gpt-4)
-openai_model: "gpt-3.5-turbo"
+openai_model: "gpt-4o"
 # Maximum tokens for OpenAI responses (default: 10000)
 openai_max_tokens: 10000
 
@@ -25,7 +25,7 @@ whisper_model_path: "models/ggml-tiny.en.bin"
 
 # --- Temporary Directory ---
 # Directory for temporary files (audio, etc.)
-tmp_dir: "/tmp" 
+tmp_dir: "/tmp"
 
 # --- Prompts Directory ---
 # Directory containing prompt YAML files
@@ -46,11 +46,14 @@ gdrive_token_file: "gdrive_token.json"
 gdrive_folder_id: "your-folder-id"
 # Whether to upload summary and/or transcript
 upload_summary: true
-upload_transcript: true 
+upload_transcript: true
 
 # --- Concurrency Limits ---
 # Maximum number of concurrent workers for each task type
 concurrency:
   transcription: 2      # Max 2 concurrent transcription tasks
   summarization: 3      # Max 3 concurrent summarization tasks
-  video_processing: 1   # Max 1 concurrent video processing task 
+  video_info: 1         # Max 1 concurrent video info task
+  output: 1             # Max 1 concurrent output task
+  cleanup: 1            # Max 1 concurrent cleanup task
+  audio_download: 1     # Max 1 concurrent audio download task 

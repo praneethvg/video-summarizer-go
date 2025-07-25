@@ -1,0 +1,3 @@
+level: info
+format: text
+file: /app/logs/app.log 

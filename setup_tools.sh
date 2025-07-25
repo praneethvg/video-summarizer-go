@@ -185,6 +185,24 @@ else
   echo "Default whisper model already present."
 fi
 
+# Docker cleanup for package manager caches (only if running in Docker)
+if [ -f "/.dockerenv" ]; then
+  echo "Detected Docker environment. Cleaning up package manager caches..."
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get clean && rm -rf /var/lib/apt/lists/*;
+  fi
+  if command -v yum >/dev/null 2>&1; then
+    yum clean all && rm -rf /var/cache/yum;
+  fi
+  if command -v dnf >/dev/null 2>&1; then
+    dnf clean all && rm -rf /var/cache/dnf;
+  fi
+  if command -v apk >/dev/null 2>&1; then
+    rm -rf /var/cache/apk/*;
+  fi
+  echo "Package manager cleanup complete."
+fi
+
 echo "Setup complete! All tools and models are ready."
 echo "Available tools:"
 echo "  - yt-dlp: $YTDLP_BIN"
