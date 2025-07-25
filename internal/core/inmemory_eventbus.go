@@ -9,13 +9,13 @@ import (
 )
 
 type InMemoryEventBus struct {
-	handlers map[string][]interfaces.EventHandler
+	handlers map[interfaces.EventType][]interfaces.EventHandler
 	mu       sync.RWMutex
 }
 
 func NewInMemoryEventBus() *InMemoryEventBus {
 	return &InMemoryEventBus{
-		handlers: make(map[string][]interfaces.EventHandler),
+		handlers: make(map[interfaces.EventType][]interfaces.EventHandler),
 	}
 }
 
@@ -31,7 +31,7 @@ func (b *InMemoryEventBus) Publish(event interfaces.Event) error {
 	return nil
 }
 
-func (b *InMemoryEventBus) Subscribe(eventType string, handler interfaces.EventHandler) {
+func (b *InMemoryEventBus) Subscribe(eventType interfaces.EventType, handler interfaces.EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.handlers[eventType] = append(b.handlers[eventType], handler)

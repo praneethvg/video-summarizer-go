@@ -7,7 +7,6 @@ import (
 
 	"video-summarizer-go/internal/config"
 
-	"io/ioutil"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -17,10 +16,9 @@ import (
 
 // OpenAISummarizationProvider implements interfaces.SummarizationProvider using OpenAI Chat API
 type OpenAISummarizationProvider struct {
-	client        *openai.Client
-	model         string
-	maxTokens     int
-	promptManager *config.PromptManager
+	client    *openai.Client
+	model     string
+	maxTokens int
 }
 
 func NewOpenAISummarizationProviderFromConfig(cfg *config.AppConfig) (*OpenAISummarizationProvider, error) {
@@ -46,22 +44,12 @@ func NewOpenAISummarizationProviderFromConfig(cfg *config.AppConfig) (*OpenAISum
 	}, nil
 }
 
-// SetPromptManager sets the prompt manager for this provider
-func (p *OpenAISummarizationProvider) SetPromptManager(pm *config.PromptManager) {
-	p.promptManager = pm
-}
-
 // SummarizeText summarizes the given text using OpenAI
 func (p *OpenAISummarizationProvider) SummarizeText(ctx context.Context, text, prompt string, maxTokens int) (string, error) {
-	resolvedPrompt, err := p.promptManager.ResolvePrompt(prompt)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve prompt: %w", err)
-	}
-
 	messages := []openai.ChatCompletionMessage{
 		{
 			Role:    openai.ChatMessageRoleSystem,
-			Content: resolvedPrompt,
+			Content: prompt,
 		},
 		{
 			Role:    openai.ChatMessageRoleUser,
@@ -86,7 +74,7 @@ func (p *OpenAISummarizationProvider) SummarizeText(ctx context.Context, text, p
 
 	summary := strings.TrimSpace(resp.Choices[0].Message.Content)
 
-	tmpFile, err := ioutil.TempFile("", "summary-*.txt")
+	tmpFile, err := os.CreateTemp("", "summary-*.txt")
 	if err != nil {
 		return "", err
 	}
@@ -96,13 +84,4 @@ func (p *OpenAISummarizationProvider) SummarizeText(ctx context.Context, text, p
 		return "", err
 	}
 	return tmpFile.Name(), nil
-}
-
-func (p *OpenAISummarizationProvider) GetAvailablePrompts() []string {
-	prompts := p.promptManager.GetAllPrompts()
-	result := make([]string, len(prompts))
-	for i, prompt := range prompts {
-		result[i] = prompt.ID
-	}
-	return result
 }

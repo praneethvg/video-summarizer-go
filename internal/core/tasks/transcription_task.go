@@ -50,7 +50,7 @@ func (p *TranscriptionTask) Process(ctx context.Context, task *interfaces.Task, 
 	engine.GetEventBus().Publish(interfaces.Event{
 		ID:        fmt.Sprintf("evt-%s-transcript-%d", task.RequestID, time.Now().UnixNano()),
 		RequestID: task.RequestID,
-		Type:      "TranscriptionCompleted",
+		Type:      interfaces.EventTypeTranscriptionCompleted,
 		Data:      map[string]interface{}{"transcript": transcriptPath},
 		Timestamp: time.Now(),
 	})

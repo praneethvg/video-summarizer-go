@@ -26,11 +26,22 @@ type Task struct {
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// EventType represents different types of system events
+type EventType string
+
+const (
+	EventTypeSummarizationCompleted EventType = "SummarizationCompleted"
+	EventTypeTranscriptionCompleted EventType = "TranscriptionCompleted"
+	EventTypeVideoInfoCompleted     EventType = "VideoInfoCompleted"
+	EventTypeOutputCompleted        EventType = "OutputCompleted"
+	EventTypeCleanupCompleted       EventType = "CleanupCompleted"
+)
+
 // Event represents a system event
 type Event struct {
 	ID        string                 `json:"id"`
 	RequestID string                 `json:"request_id"`
-	Type      string                 `json:"type"`
+	Type      EventType              `json:"type"`
 	Data      map[string]interface{} `json:"data"`
 	Timestamp time.Time              `json:"timestamp"`
 }

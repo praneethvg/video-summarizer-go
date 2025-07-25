@@ -29,7 +29,7 @@ type EventHandler func(event Event)
 
 type EventBus interface {
 	Publish(event Event) error
-	Subscribe(eventType string, handler EventHandler)
+	Subscribe(eventType EventType, handler EventHandler)
 }
 
 // TaskQueue defines enqueue/dequeue for tasks

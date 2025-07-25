@@ -102,7 +102,7 @@ func (p *OutputTask) Process(ctx context.Context, task *interfaces.Task, engine 
 	engine.GetEventBus().Publish(interfaces.Event{
 		ID:        fmt.Sprintf("evt-%s-output-%d", task.RequestID, time.Now().UnixNano()),
 		RequestID: task.RequestID,
-		Type:      "OutputCompleted",
+		Type:      interfaces.EventTypeOutputCompleted,
 		Data:      map[string]interface{}{"summary": summaryPath, "status": finalStatus},
 		Timestamp: time.Now(),
 	})

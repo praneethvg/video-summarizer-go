@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -18,7 +17,6 @@ func main() {
 	textFile := flag.String("file", "", "Path to text file to summarize")
 	text := flag.String("text", "", "Text to summarize (alternative to file)")
 	prompt := flag.String("prompt", "general", "Summarization prompt type")
-	listPrompts := flag.Bool("list-prompts", false, "List available prompts")
 	flag.Parse()
 
 	cfg, err := config.LoadConfig(*configPath)
@@ -44,24 +42,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set prompt manager on the provider
-	if openaiProvider, ok := provider.(*summarization.OpenAISummarizationProvider); ok {
-		openaiProvider.SetPromptManager(promptManager)
-	} else if textProvider, ok := provider.(*summarization.TextSummarizationProvider); ok {
-		textProvider.SetPromptManager(promptManager)
-	}
-
-	if *listPrompts {
-		logrus.Infof("Available prompts:")
-		for _, prompt := range provider.GetAvailablePrompts() {
-			logrus.Infof("  - %s", prompt)
-		}
-		return
-	}
-
 	var inputText string
 	if *textFile != "" {
-		data, err := ioutil.ReadFile(*textFile)
+		data, err := os.ReadFile(*textFile)
 		if err != nil {
 			logrus.Errorf("Failed to read file: %v", err)
 			os.Exit(1)

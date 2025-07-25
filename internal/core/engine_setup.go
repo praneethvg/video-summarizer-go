@@ -46,13 +46,6 @@ func SetupEngine(appCfg *config.AppConfig) (*ProcessingEngine, *WorkerPool, *con
 		return nil, nil, nil, fmt.Errorf("failed to create summarization provider: %w", err)
 	}
 
-	// Set prompt manager on the summarization provider
-	if openaiProvider, ok := summarizationProvider.(*summarization.OpenAISummarizationProvider); ok {
-		openaiProvider.SetPromptManager(promptManager)
-	} else if textProvider, ok := summarizationProvider.(*summarization.TextSummarizationProvider); ok {
-		textProvider.SetPromptManager(promptManager)
-	}
-
 	var outputProvider interfaces.OutputProvider
 	if appCfg.OutputProvider == "gdrive" {
 		outputProvider, err = output.NewGDriveOutputProvider(appCfg)

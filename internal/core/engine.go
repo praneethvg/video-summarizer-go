@@ -63,9 +63,9 @@ func (e *ProcessingEngine) registerEventHandlers() {
 	e.eventBus.Subscribe("VideoProcessingRequested", e.onVideoProcessingRequested)
 	e.eventBus.Subscribe("VideoInfoFetched", e.onVideoInfoFetched)
 	e.eventBus.Subscribe("AudioDownloaded", e.onAudioDownloaded)
-	e.eventBus.Subscribe("TranscriptionCompleted", e.onTranscriptionCompleted)
-	e.eventBus.Subscribe("SummarizationCompleted", e.onSummarizationCompleted)
-	e.eventBus.Subscribe("OutputCompleted", e.onOutputCompleted)
+	e.eventBus.Subscribe(interfaces.EventTypeTranscriptionCompleted, e.onTranscriptionCompleted)
+	e.eventBus.Subscribe(interfaces.EventTypeSummarizationCompleted, e.onSummarizationCompleted)
+	e.eventBus.Subscribe(interfaces.EventTypeOutputCompleted, e.onOutputCompleted)
 }
 
 // Entry point: create a new request and emit VideoProcessingRequested

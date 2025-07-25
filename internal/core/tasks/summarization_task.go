@@ -45,26 +45,20 @@ func (p *SummarizationTask) Process(ctx context.Context, task *interfaces.Task, 
 		return err
 	}
 	prompt := state.Prompt
-	var promptText string
+	promptText := ""
 	switch prompt.Type {
 	case interfaces.PromptTypeID:
 		pm := engine.GetPromptManager()
-		if pm != nil {
-			resolved, err := pm.ResolvePrompt(prompt.Prompt)
-			if err != nil {
-				log.WithError(err).Warn("Failed to resolve prompt ID, using ID as text")
-				promptText = prompt.Prompt
-			} else {
+		if pm != nil && prompt.Prompt != "" {
+			if resolved, err := pm.ResolvePrompt(prompt.Prompt); err == nil && resolved != "" {
 				promptText = resolved
 			}
-		} else {
-			promptText = prompt.Prompt
 		}
 	case interfaces.PromptTypeText:
 		promptText = prompt.Prompt
 	}
 	if promptText == "" {
-		promptText = "general"
+		promptText = "summarize"
 	}
 	maxTokens := state.MaxTokens
 	if maxTokens == 0 {
@@ -93,7 +87,7 @@ func (p *SummarizationTask) Process(ctx context.Context, task *interfaces.Task, 
 	engine.GetEventBus().Publish(interfaces.Event{
 		ID:        fmt.Sprintf("evt-%s-summary-%d", task.RequestID, time.Now().UnixNano()),
 		RequestID: task.RequestID,
-		Type:      "SummarizationCompleted",
+		Type:      interfaces.EventTypeSummarizationCompleted,
 		Data:      map[string]interface{}{"summary": summaryPath},
 		Timestamp: time.Now(),
 	})

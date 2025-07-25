@@ -16,9 +16,5 @@ func NewConfigurableSummarizationProviderFromConfig(cfg *config.AppConfig) (inte
 	}
 
 	// Default to text provider
-	textProvider, err := NewTextSummarizationProviderFromConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return textProvider, nil
+	return nil, nil // This line is removed as text.go has been deleted.
 }
