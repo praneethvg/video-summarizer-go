@@ -3,11 +3,11 @@ package logging
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -15,16 +15,31 @@ type Config struct {
 	Level  string `yaml:"level"`
 	Format string `yaml:"format"`
 	File   string `yaml:"file"`
+	// Log rotation settings
+	MaxSize    int  `yaml:"max_size"`    // Maximum size in megabytes before rotation
+	MaxBackups int  `yaml:"max_backups"` // Maximum number of old log files to retain
+	MaxAge     int  `yaml:"max_age"`     // Maximum number of days to retain old log files
+	Compress   bool `yaml:"compress"`    // Whether to compress rotated log files
 }
 
 func LoadConfig(path string) (*Config, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
+	}
+	// Set defaults for log rotation if not specified
+	if cfg.MaxSize == 0 {
+		cfg.MaxSize = 100 // 100 MB default
+	}
+	if cfg.MaxBackups == 0 {
+		cfg.MaxBackups = 3 // Keep 3 backup files default
+	}
+	if cfg.MaxAge == 0 {
+		cfg.MaxAge = 28 // Keep logs for 28 days default
 	}
 	return &cfg, nil
 }
@@ -86,12 +101,16 @@ func SetupLogging(path string) error {
 
 	// Set log output
 	if cfg.File != "" {
-		file, err := os.OpenFile(cfg.File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err == nil {
-			log.SetOutput(io.MultiWriter(os.Stderr, file))
-		} else {
-			log.Warn("Failed to log to file, using default stderr")
+		lumberjackLogger := &lumberjack.Logger{
+			Filename:   cfg.File,
+			MaxSize:    cfg.MaxSize, // MB
+			MaxBackups: cfg.MaxBackups,
+			MaxAge:     cfg.MaxAge, // days
+			Compress:   cfg.Compress,
 		}
+		log.SetOutput(io.MultiWriter(os.Stderr, lumberjackLogger))
+	} else {
+		log.SetOutput(io.MultiWriter(os.Stderr))
 	}
 	return nil
 }

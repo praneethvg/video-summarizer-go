@@ -12,6 +12,7 @@ service_account.json
 # Ignore local configs
 config.yaml
 service.yaml
+sources.yaml
 
 # Ignore editor and OS files
 *.swp
@@ -34,3 +35,16 @@ models/
 
 # Ignore prompts directory (generated prompt files)
 prompts/ 
+
+# Ignore secrets directory
+secrets/*.json
+
+# Ignore docker compose file
+docker-compose.yml
+.env
+
+#Ignore conifg thats setup
+config/*
+
+#Ignore logs
+logs/*

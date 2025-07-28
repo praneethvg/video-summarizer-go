@@ -3,31 +3,33 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-// ServiceConfig represents the configuration for the video summarizer service
+// ServiceConfig represents the service configuration
 type ServiceConfig struct {
-	Server            ServerConfig            `yaml:"server"`
-	EngineConfigPath  string                  `yaml:"engine_config_path"`
-	BackgroundSources BackgroundSourcesConfig `yaml:"background_sources"`
-	PromptsDir        string                  `yaml:"prompts_dir"`
+	Server struct {
+		Port int    `yaml:"port"`
+		Host string `yaml:"host"`
+	} `yaml:"server"`
+
+	EngineConfigPath  string `yaml:"engine_config_path"`
+	PromptsDir        string `yaml:"prompts_dir"`
+	SourcesConfigPath string `yaml:"sources_config_path"`
+
+	// BackgroundSources will be loaded from separate file
+	BackgroundSources BackgroundSourcesConfig `yaml:"-"`
 }
 
-// ServerConfig defines HTTP server settings
-type ServerConfig struct {
-	Port int    `yaml:"port"`
-	Host string `yaml:"host"`
-}
-
-// BackgroundSourcesConfig defines background video source settings
+// BackgroundSourcesConfig represents background sources configuration
 type BackgroundSourcesConfig struct {
 	Sources []SourceConfig `yaml:"sources"`
 }
 
-// SourceConfig represents a single background video source configuration
+// SourceConfig represents a background source configuration
 type SourceConfig struct {
 	Name     string                 `yaml:"name"`
 	Type     string                 `yaml:"type"`
@@ -38,40 +40,133 @@ type SourceConfig struct {
 	Config   map[string]interface{} `yaml:"config"`
 }
 
-// LoadServiceConfig loads the service configuration from a file
 func LoadServiceConfig(path string) (*ServiceConfig, error) {
-	f, err := os.Open(path)
+	// Read YAML file
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open service config file: %w", err)
+		return nil, fmt.Errorf("failed to read service config file %s: %w", path, err)
 	}
-	defer f.Close()
 
 	var cfg ServiceConfig
-	dec := yaml.NewDecoder(f)
-	if err := dec.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to decode service config: %w", err)
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse service config file %s: %w", path, err)
 	}
 
-	// Set defaults
-	if cfg.Server.Port == 0 {
-		cfg.Server.Port = 8080
-	}
-	if cfg.Server.Host == "" {
-		cfg.Server.Host = "0.0.0.0"
-	}
-	if cfg.EngineConfigPath == "" {
-		cfg.EngineConfigPath = "config.yaml"
+	// Apply environment variable overrides
+	cfg.applyEnvOverrides()
+
+	// Set defaults for missing values
+	cfg.setDefaults()
+
+	// Load background sources from separate file
+	if err := cfg.loadBackgroundSources(); err != nil {
+		return nil, fmt.Errorf("failed to load background sources: %w", err)
 	}
 
 	return &cfg, nil
 }
 
-// GetIntervalDuration parses the interval string and returns a duration
-func (c *SourceConfig) GetIntervalDuration() (time.Duration, error) {
-	if c.Interval == "" {
-		return 30 * time.Minute, nil // default
+// applyEnvOverrides applies environment variable overrides to the service config
+func (c *ServiceConfig) applyEnvOverrides() {
+	// Helper function to get env var with fallback
+	getEnv := func(key, fallback string) string {
+		if val := os.Getenv(key); val != "" {
+			return val
+		}
+		return fallback
 	}
+
+	getEnvInt := func(key string, fallback int) int {
+		if val := os.Getenv(key); val != "" {
+			if i, err := strconv.Atoi(val); err == nil {
+				return i
+			}
+		}
+		return fallback
+	}
+
+	// Apply server overrides
+	c.Server.Port = getEnvInt("VS_SERVER_PORT", c.Server.Port)
+	c.Server.Host = getEnv("VS_SERVER_HOST", c.Server.Host)
+
+	// Apply other overrides
+	c.EngineConfigPath = getEnv("VS_ENGINE_CONFIG_PATH", c.EngineConfigPath)
+	c.PromptsDir = getEnv("VS_PROMPTS_DIR", c.PromptsDir)
+	c.SourcesConfigPath = getEnv("VS_SOURCES_CONFIG_PATH", c.SourcesConfigPath)
+
+	// Note: Background sources are configured via YAML config files
+	// For runtime configuration, mount different service.yaml files or use ConfigMaps in Kubernetes
+}
+
+// setDefaults sets default values for missing service configuration
+func (c *ServiceConfig) setDefaults() {
+	if c.Server.Port == 0 {
+		c.Server.Port = 8080
+	}
+	if c.Server.Host == "" {
+		c.Server.Host = "0.0.0.0"
+	}
+	if c.EngineConfigPath == "" {
+		c.EngineConfigPath = "config.yaml"
+	}
+	if c.PromptsDir == "" {
+		c.PromptsDir = "prompts"
+	}
+	if c.SourcesConfigPath == "" {
+		c.SourcesConfigPath = "sources.yaml"
+	}
+}
+
+// loadBackgroundSources loads background sources from a separate YAML file
+func (c *ServiceConfig) loadBackgroundSources() error {
+	if c.SourcesConfigPath == "" {
+		return nil // No sources config path specified, no sources to load
+	}
+
+	data, err := os.ReadFile(c.SourcesConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to read sources config file %s: %w", c.SourcesConfigPath, err)
+	}
+
+	var sourcesCfg BackgroundSourcesConfig
+	if err := yaml.Unmarshal(data, &sourcesCfg); err != nil {
+		return fmt.Errorf("failed to parse sources config file %s: %w", c.SourcesConfigPath, err)
+	}
+
+	c.BackgroundSources = sourcesCfg
+	return nil
+}
+
+// GetIntervalDuration returns the parsed interval duration for a source
+func (c *SourceConfig) GetIntervalDuration() (time.Duration, error) {
 	return time.ParseDuration(c.Interval)
+}
+
+// GetMaxVideosPerRun returns the max_videos_per_run value from config
+func (c *SourceConfig) GetMaxVideosPerRun() int {
+	return c.getConfigInt("max_videos_per_run", 1)
+}
+
+// GetChannelVideosLookback returns the channel_videos_lookback value from config
+func (c *SourceConfig) GetChannelVideosLookback() int {
+	return c.getConfigInt("channel_videos_lookback", 50)
+}
+
+// getConfigInt is a reusable helper method to extract integer values from config map
+func (c *SourceConfig) getConfigInt(key string, defaultValue int) int {
+	if val, ok := c.Config[key]; ok {
+		if intVal, ok := val.(int); ok {
+			return intVal
+		}
+		// Handle other numeric types that might be parsed from YAML
+		switch v := val.(type) {
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
+		}
+	}
+	return defaultValue
 }
 
 // GetQueries extracts queries from config for youtube_search type
@@ -119,34 +214,4 @@ func (c *SourceConfig) GetFeedURL() (string, error) {
 	}
 
 	return feedURL, nil
-}
-
-// GetMaxVideosPerRun returns max_videos_per_run from config or default 1
-func (c *SourceConfig) GetMaxVideosPerRun() int {
-	if val, ok := c.Config["max_videos_per_run"]; ok {
-		switch v := val.(type) {
-		case int:
-			return v
-		case int64:
-			return int(v)
-		case float64:
-			return int(v)
-		}
-	}
-	return 1
-}
-
-// GetChannelVideosLookback returns channel_videos_lookback from config or default 50
-func (c *SourceConfig) GetChannelVideosLookback() int {
-	if val, ok := c.Config["channel_videos_lookback"]; ok {
-		switch v := val.(type) {
-		case int:
-			return v
-		case int64:
-			return int(v)
-		case float64:
-			return int(v)
-		}
-	}
-	return 50
 }

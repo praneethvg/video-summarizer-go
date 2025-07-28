@@ -1,3 +1,8 @@
 level: info
 format: text
-file: /app/logs/app.log 
+file: /app/logs/app.log
+# Log rotation settings
+max_size: 100     # 100 MB before rotation
+max_backups: 3    # Keep 3 backup files
+max_age: 28       # Keep logs for 28 days
+compress: true    # Compress rotated log files 

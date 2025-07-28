@@ -29,20 +29,20 @@ whisper.cpp/
 *.swo
 *.DS_Store
 
-# Config templates
-config.yaml.template
-service.yaml.template
-
 #Configs
 config.yaml
 service.yaml
+sources.yaml
 
 # Secrets
 *credentials.json
 *token.json
 *secret.json
+.env
 
 # Test and docs
 *.md
 docs/
 **/*_test.go 
+
+docker-compose.example.yml

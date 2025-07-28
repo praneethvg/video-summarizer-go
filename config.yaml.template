@@ -15,13 +15,13 @@ openai_max_tokens: 10000
 
 # --- Video Provider (yt-dlp) ---
 # Path to yt-dlp binary
-yt_dlp_path: "tools/yt-dlp"
+yt_dlp_path: "/app/tools/yt-dlp"
 
 # --- Transcription Provider (whisper.cpp) ---
 # Path to whisper.cpp binary
-whisper_path: "tools/whisper"
+whisper_path: "/app/tools/whisper"
 # Path to whisper.cpp model file
-whisper_model_path: "models/ggml-tiny.en.bin"
+whisper_model_path: "/app/models/ggml-tiny.en.bin"
 
 # --- Temporary Directory ---
 # Directory for temporary files (audio, etc.)
@@ -29,7 +29,7 @@ tmp_dir: "/tmp"
 
 # --- Prompts Directory ---
 # Directory containing prompt YAML files
-prompts_dir: "prompts"
+prompts_dir: "/app/prompts"
 
 # --- Output Provider ---
 # Output provider type: file, gdrive, s3, webhook, etc.
@@ -39,9 +39,9 @@ output_provider: gdrive
 # Authentication method: 'service_account' or 'oauth'
 gdrive_auth_method: "oauth"
 # Path to Google Drive OAuth2 credentials JSON file
-gdrive_credentials_file: "gdrive_credentials.json"
+gdrive_credentials_file: "/app/secrets/gdrive_credentials.json"
 # Path to Google Drive OAuth2 token file (required for oauth method)
-gdrive_token_file: "gdrive_token.json"
+gdrive_token_file: "/app/secrets/gdrive_token.json"
 # Google Drive folder ID to upload files to
 gdrive_folder_id: "your-folder-id"
 # Whether to upload summary and/or transcript

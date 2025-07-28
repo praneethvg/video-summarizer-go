@@ -32,7 +32,7 @@ func NewGDriveOutputProvider(cfg *config.AppConfig) (*GDriveOutputProvider, erro
 	switch cfg.GDriveAuthMethod {
 	case "oauth":
 		// Use OAuth client + user token
-		creds, err := os.ReadFile(cfg.GDriveCredentials)
+		creds, err := os.ReadFile(cfg.GDriveCredentialsFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read OAuth credentials file: %w", err)
 		}
@@ -40,7 +40,7 @@ func NewGDriveOutputProvider(cfg *config.AppConfig) (*GDriveOutputProvider, erro
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse OAuth credentials: %w", err)
 		}
-		tok, err := tokenFromFile(cfg.GDriveToken)
+		tok, err := tokenFromFile(cfg.GDriveTokenFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read OAuth token file: %w", err)
 		}
@@ -53,7 +53,7 @@ func NewGDriveOutputProvider(cfg *config.AppConfig) (*GDriveOutputProvider, erro
 		fallthrough
 	default:
 		// Use service account (default)
-		service, err = drive.NewService(ctx, option.WithCredentialsFile(cfg.GDriveCredentials))
+		service, err = drive.NewService(ctx, option.WithCredentialsFile(cfg.GDriveCredentialsFile))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Google Drive service (service_account): %w", err)
 		}

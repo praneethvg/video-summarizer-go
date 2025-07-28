@@ -8,51 +8,12 @@ server:
 
 # --- Engine Configuration ---
 # Path to the main engine configuration file
-engine_config_path: "config.yaml"
+engine_config_path: "/app/config/config.yaml"
 
 # --- Prompts Directory ---
 # Directory where prompt YAML files are stored
-prompts_dir: "prompts"
+prompts_dir: "/app/prompts"
 
-# --- Background Video Sources ---
-background_sources:
-  sources:
-    # YouTube Search Source - Tech Tutorials (with channel filtering)
-    - name: "tech_tutorials"
-      type: "youtube_search"
-      enabled: true
-      interval: "30m"              # How often to search (e.g., "30m", "1h", "6h")
-      prompt_id: "educational"     # Prompt ID to use for this source
-      category: "education"        # Optional: category for this source
-      config:
-        queries:
-          - "machine learning tutorials"
-          - "Go programming tips"
-        channel: "UC8butISFwT-Wl7EV0hUK0BQ"  # Only one channel per source (channel ID or name)
-        max_videos_per_run: 5        # Maximum videos to process per search
-        channel_videos_lookback: 50  # How many videos to scan when searching within a channel
-    
-    # YouTube Search Source - Market News (no channel filtering)
-    - name: "market_news"
-      type: "youtube_search"
-      enabled: true
-      interval: "1h"
-      prompt_id: "market_report"
-      category: "news"
-      config:
-        queries:
-          - "market analysis"
-          - "stock market news"
-        # No channel specified = search all channels
-        max_videos_per_run: 3
-        channel_videos_lookback: 30  # Scan 30 videos when searching within channels
-    
-    # RSS Feed Source (future implementation)
-    # - name: "tech_podcasts"
-    #   type: "rss_feed"
-    #   enabled: false
-    #   interval: "6h"
-    #   prompt_id: "general"
-    #   category: "podcast"
-    #   config:
-    #     feed_url: "https://example.com/podcast.xml" 
+# --- Background Sources Configuration ---
+# Path to the background sources configuration file
+sources_config_path: "/app/config/sources.yaml" 

@@ -16,6 +16,9 @@ video-summarizer-go/
 ├── pkg/                  # Public packages (if any)
 ├── docs/                 # Documentation
 ├── go.mod, go.sum        # Go module files
+├── build_all.sh         # Build all binaries
+├── setup_tools.sh       # Install external tools
+├── setup-runtime-config.sh # Runtime configuration setup
 ├── README.md             # This file
 ```
 
@@ -177,6 +180,138 @@ Before running the service, copy `config.yaml.template` to `config.yaml` and fil
 See the full list and documentation in [`config.yaml.template`](./config.yaml.template).
 
 For Google Drive output setup (OAuth or service account), see [`docs/google_drive_setup.md`](./docs/google_drive_setup.md) for step-by-step instructions.
+
+## Scripts
+
+The project contains utility scripts for building and setting up the project:
+
+### `build_all.sh`
+Builds all Go binaries and places them in the `bin/` directory.
+
+### `setup_tools.sh`
+Downloads and installs required external tools (yt-dlp, whisper.cpp) for video processing.
+
+### `setup-runtime-config.sh`
+Sets up the runtime configuration structure for Docker deployment:
+- Creates `secrets/`, `config/`, and `logs/` directories
+- Sets up proper file permissions
+- Creates `.env` template for environment variables
+- Copies configuration templates to the appropriate locations
+
+**Usage:**
+```bash
+./setup-runtime-config.sh
+```
+
+## Docker Deployment
+
+The application is containerized and supports runtime configuration for cloud deployment.
+
+### Quick Start with Docker
+
+1. **Set up runtime configuration:**
+   ```bash
+   ./setup-runtime-config.sh
+   ```
+
+2. **Build the Docker image:**
+   ```bash
+   docker build -t video-summarizer:latest .
+   ```
+
+3. **Run with environment variables:**
+   ```bash
+   docker run -d \
+     --name video-summarizer \
+     -p 8080:8080 \
+     -e VS_OPENAI_API_KEY=your-openai-key \
+     -e VS_GDRIVE_FOLDER_ID=your-folder-id \
+     -v ./secrets:/app/secrets:ro \
+     video-summarizer:latest
+   ```
+
+### Docker Compose
+
+Use the provided `docker-compose.example.yml` for easier deployment:
+
+1. **Copy and customize:**
+   ```bash
+   cp docker-compose.example.yml docker-compose.yml
+   ```
+
+2. **Create `.env` file with your secrets:**
+   ```bash
+   OPENAI_API_KEY=sk-your-openai-api-key-here
+   GDRIVE_FOLDER_ID=your-google-drive-folder-id
+   ```
+
+3. **Run with Docker Compose:**
+   ```bash
+   docker-compose up -d
+   ```
+
+### Runtime Configuration
+
+The application supports flexible runtime configuration through:
+
+- **Environment Variables**: All settings can be overridden with `VS_` prefixed environment variables
+- **Mounted Configuration Files**: Mount custom `config.yaml`, `service.yaml`, and `sources.yaml` files
+- **Volume Mounts**: Mount secrets, logs, and temporary directories
+
+#### Key Environment Variables
+
+```bash
+# OpenAI Configuration
+VS_OPENAI_API_KEY=sk-your-key
+VS_OPENAI_MODEL=gpt-4o
+VS_OPENAI_MAX_TOKENS=10000
+
+# Google Drive Configuration
+VS_GDRIVE_AUTH_METHOD=oauth
+VS_GDRIVE_CREDENTIALS_FILE=/app/secrets/gdrive_credentials.json
+VS_GDRIVE_TOKEN_FILE=/app/secrets/gdrive_token.json
+VS_GDRIVE_FOLDER_ID=your-folder-id
+
+# Server Configuration
+VS_SERVER_PORT=8080
+VS_SERVER_HOST=0.0.0.0
+
+# Concurrency Settings
+VS_CONCURRENCY_TRANSCRIPTION=2
+VS_CONCURRENCY_SUMMARIZATION=3
+```
+
+### Kubernetes Deployment
+
+For Kubernetes deployment, see the comprehensive guide in [`docs/runtime_configuration.md`](./docs/runtime_configuration.md) which includes:
+
+- ConfigMap examples for non-sensitive configuration
+- Secret management for sensitive data
+- Deployment manifests with volume mounts
+- Service and ingress configurations
+
+### Secret Management
+
+**Never bake secrets into Docker images.** Instead:
+
+- Use environment variables for simple secrets
+- Mount secret files from the host or Kubernetes secrets
+- Use cloud secret managers (AWS Secrets Manager, GCP Secret Manager, etc.)
+
+### Directory Structure in Container
+
+```
+/app/
+├── bin/                    # Compiled binaries
+├── config/                 # Configuration files
+├── models/                 # Whisper models
+├── prompts/                # Prompt definitions
+├── tools/                  # External tools (yt-dlp, whisper)
+├── secrets/                # Secret files (mounted)
+└── logs/                   # Application logs
+```
+
+For detailed Docker and runtime configuration options, see [`docs/runtime_configuration.md`](./docs/runtime_configuration.md).
 
 ## Prompt System
 
